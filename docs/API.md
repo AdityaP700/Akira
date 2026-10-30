@@ -39,6 +39,11 @@ All error responses return a standardized JSON envelope with the active request 
 | `POST` | `/groups/{group_id}/expenses` | `{"paid_by", "amount", "description", "split_type", ...}` | 201 | Atomic expense creation with shares & ledger |
 | `POST` | `/expenses` | `{"group_id", "paid_by", "amount", ...}` | 201 | Brief-compatible alias for expense creation |
 | `GET` | `/groups/{group_id}/expenses` | None (Query: `limit`, `cursor`) | 200 | Keyset paginated group expenses list |
+| `GET` | `/groups/{group_id}/balances` | None | 200 | Derived pairwise and net balances |
+| `GET` | `/balances` | None | 200 | Derived balances across all groups |
+| `GET` | `/groups/{group_id}/settle-up` | None | 200 | Greedy debt simplification suggestions |
+| `POST` | `/groups/{group_id}/settlements` | `{"from_user", "to_user", "amount", "method"}` | 201 | Record repayment with ledger entry |
+| `GET` | `/groups/{group_id}/settlements` | None (Query: `limit`, `cursor`) | 200 | Keyset paginated settlements list |
 
 ---
 
@@ -288,6 +293,193 @@ curl -X GET "http://localhost:8000/groups/grp_5b8ef1092a48721c40ab21cd83/expense
       },
       "split_type": "EXACT",
       "created_at": "2026-10-30T10:15:00Z"
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+---
+
+### 3.10 Get Group Balances
+
+Calculates derived pairwise debts (matching the brief's name-keyed dictionary) as well as ID-keyed pairs and user net balances.
+
+```bash
+curl -X GET "http://localhost:8000/groups/grp_5b8ef1092a48721c40ab21cd83/balances" \
+  -H "Accept: application/json"
+```
+
+**Response (200 OK):**
+```json
+{
+  "balances": {
+    "Rahul": {
+      "owes": {
+        "Mohit": "400.00"
+      }
+    },
+    "Ankit": {
+      "owes": {
+        "Mohit": "400.00"
+      }
+    }
+  },
+  "pairs": [
+    {
+      "from": {"id": "usr_200779ba9d546100c7ebe1862c", "name": "Rahul"},
+      "to": {"id": "usr_944e8bc1a43d92fb90a218f029", "name": "Mohit"},
+      "amount": "400.00"
+    },
+    {
+      "from": {"id": "usr_311880cb0e657211d8fcf2973d", "name": "Ankit"},
+      "to": {"id": "usr_944e8bc1a43d92fb90a218f029", "name": "Mohit"},
+      "amount": "400.00"
+    }
+  ],
+  "net": [
+    {
+      "user": {"id": "usr_944e8bc1a43d92fb90a218f029", "name": "Mohit"},
+      "net": "800.00"
+    },
+    {
+      "user": {"id": "usr_200779ba9d546100c7ebe1862c", "name": "Rahul"},
+      "net": "-400.00"
+    },
+    {
+      "user": {"id": "usr_311880cb0e657211d8fcf2973d", "name": "Ankit"},
+      "net": "-400.00"
+    }
+  ]
+}
+```
+
+---
+
+### 3.11 Get Balances Across All Groups (Brief Alias)
+
+```bash
+curl -X GET "http://localhost:8000/balances" \
+  -H "Accept: application/json"
+```
+
+**Response (200 OK):**
+```json
+{
+  "groups": [
+    {
+      "group": {
+        "id": "grp_5b8ef1092a48721c40ab21cd83",
+        "name": "Goa Trip"
+      },
+      "balances": {
+        "Rahul": {"owes": {"Mohit": "400.00"}},
+        "Ankit": {"owes": {"Mohit": "400.00"}}
+      },
+      "pairs": [ ... ],
+      "net": [ ... ]
+    }
+  ]
+}
+```
+
+---
+
+### 3.12 Settle-up Transfer Suggestions
+
+Greedy minimum cash-flow simplification suggesting at most \( n - 1 \) transfers to zero all group balances.
+
+```bash
+curl -X GET "http://localhost:8000/groups/grp_5b8ef1092a48721c40ab21cd83/settle-up" \
+  -H "Accept: application/json"
+```
+
+**Response (200 OK):**
+```json
+{
+  "transfers": [
+    {
+      "from": {"id": "usr_200779ba9d546100c7ebe1862c", "name": "Rahul"},
+      "to": {"id": "usr_944e8bc1a43d92fb90a218f029", "name": "Mohit"},
+      "amount": "400.00"
+    },
+    {
+      "from": {"id": "usr_311880cb0e657211d8fcf2973d", "name": "Ankit"},
+      "to": {"id": "usr_944e8bc1a43d92fb90a218f029", "name": "Mohit"},
+      "amount": "400.00"
+    }
+  ],
+  "count": 2,
+  "note": "suggestion only; greedy, may not be the minimum possible"
+}
+```
+
+---
+
+### 3.13 Record Settlement Repayment
+
+Atomically records a debt repayment between two group members. Validates non-overpayment against current net debt capacity, increments ledger, and updates derived balances.
+
+```bash
+curl -X POST "http://localhost:8000/groups/grp_5b8ef1092a48721c40ab21cd83/settlements" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: req_stl_001" \
+  -d '{
+    "from_user": "usr_200779ba9d546100c7ebe1862c",
+    "to_user": "usr_944e8bc1a43d92fb90a218f029",
+    "amount": "400.00",
+    "method": "CASH"
+  }'
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": "stl_01948beef2384a7190bda4918e",
+  "group_id": "grp_5b8ef1092a48721c40ab21cd83",
+  "from_user": {
+    "id": "usr_200779ba9d546100c7ebe1862c",
+    "name": "Rahul"
+  },
+  "to_user": {
+    "id": "usr_944e8bc1a43d92fb90a218f029",
+    "name": "Mohit"
+  },
+  "amount": "400.00",
+  "status": "CONFIRMED",
+  "method": "CASH",
+  "created_at": "2026-10-30T10:30:00Z"
+}
+```
+
+---
+
+### 3.14 List Group Settlements (Keyset Paginated)
+
+```bash
+curl -X GET "http://localhost:8000/groups/grp_5b8ef1092a48721c40ab21cd83/settlements?limit=20" \
+  -H "Accept: application/json"
+```
+
+**Response (200 OK):**
+```json
+{
+  "items": [
+    {
+      "id": "stl_01948beef2384a7190bda4918e",
+      "group_id": "grp_5b8ef1092a48721c40ab21cd83",
+      "from_user": {
+        "id": "usr_200779ba9d546100c7ebe1862c",
+        "name": "Rahul"
+      },
+      "to_user": {
+        "id": "usr_944e8bc1a43d92fb90a218f029",
+        "name": "Mohit"
+      },
+      "amount": "400.00",
+      "status": "CONFIRMED",
+      "method": "CASH",
+      "created_at": "2026-10-30T10:30:00Z"
     }
   ],
   "next_cursor": null

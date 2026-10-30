@@ -53,6 +53,11 @@ class IdempotencyKeyReusedError(AppError):
         super().__init__(code="IDEMPOTENCY_KEY_REUSED", message=message, status_code=422)
 
 
+class OverpaymentError(AppError):
+    def __init__(self, message: str = "Settlement amount exceeds current pairwise debt") -> None:
+        super().__init__(code="OVERPAYMENT", message=message, status_code=422)
+
+
 def _resolve_request_id(request: Request) -> str:
     return getattr(request.state, "request_id", None) or get_request_id() or "unknown"
 

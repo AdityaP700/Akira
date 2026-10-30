@@ -24,6 +24,39 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — B5 — Balances, settle-up suggestions, and recorded settlements
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented the balances calculation, greedy debt simplification suggestions (the product enhancement), and atomic settlement repayment endpoints. Built derived single-source-of-truth balance queries, overpayment bounds validation against net debt capacity, append-only ledger tracking, and keyset-paginated settlement queries.
+**Files changed:**
+- `app/api/schemas/balances.py`: Pydantic models for group balances (brief name-keyed dict, ID pairs, net balances) and settle-up transfer suggestions.
+- `app/api/schemas/settlements.py`: Pydantic request models (`SettlementIn`) and response models (`SettlementOut`, `SettlementListOut`).
+- `app/core/errors.py`: Added `OverpaymentError` AppError subclass (HTTP 422).
+- `app/services/balances.py`: Implemented derived balance queries and greedy settle-up simplification with zero stored balance drift.
+- `app/services/settlements.py`: Implemented atomic `record_settlement` use case (group row lock, overpayment validation, append-only ledger entry, idempotency key persistence) and keyset paginated `list_settlements`.
+- `app/api/routers/balances.py`: FastAPI endpoints for `GET /groups/{id}/balances`, `GET /balances` (brief alias), and `GET /groups/{id}/settle-up`.
+- `app/api/routers/settlements.py`: FastAPI endpoints for `POST /groups/{id}/settlements` and `GET /groups/{id}/settlements`.
+- `README.md`: Added detailed "Product Enhancement" write-up covering Problem, Why, Design, Trade-offs, and Payments-Infrastructure Alignment.
+- `docs/API.md`: Updated API reference with endpoints summary and curl examples for balances, settle-up, and settlement repayment.
+- `tests/api/test_balances_settleup.py`: API tests verifying brief JSON structure, repayments, overpayment rejection (422), settle-up zeroing all net balances, transfer bounds (<= 5 for 6 users), global balances alias, and keyset pagination.
+**Behaviour before → after:**
+- Clients can query derived balances for groups, view suggested minimal cash transfers, and record real settlement repayments that immediately reflect in balances.
+- Repayments are strictly bounded against outstanding net debt capacity to prevent overpayment.
+**How to verify:**
+1. `pytest -q --cov=app` → 103 passed (95% total coverage).
+2. `ruff check .`, `ruff format --check .`, and `mypy app/domain app/services` → all pass.
+**Risks / things to look at closely:**
+- Balances are derived dynamically from expenses, shares, and settlements — no materialised balance drift.
+- Overpayment check ensures debtor cannot pay more than their net debt and creditor cannot receive more than their net credit.
+**Expected follow-up:**
+- Phase B6: Baseline release, demo seed script (`scripts/seed_goa_trip.py`), and brief requirement audit.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 058546f — B4 — Expenses: atomic, locked, idempotent
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented the core expense creation and listing endpoints with group row-level locking (`SELECT ... FOR UPDATE`), atomic shares computation (EQUAL with deterministic remainder, EXACT with strict sum validation), append-only ledger entries, and SHA-256 fingerprint-based request idempotency.

@@ -19,6 +19,30 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-30 18:00 — B5 — Balances, settle-up suggestions, and recorded settlements
+**Status:** done
+**What changed:**
+- Implemented `get_group_balances`, `get_all_group_balances`, and `get_settle_up_suggestions` in `app/services/balances.py` using derived domain queries (`net_balances`, `pairwise_debts`, `simplify`) with zero stored balance drift.
+- Implemented `record_settlement` and `list_settlements` in `app/services/settlements.py` with group row lock (`SELECT ... FOR UPDATE`), overpayment validation against net debt capacity, append-only `SETTLEMENT` ledger entry, and idempotency key persistence.
+- Added API endpoints in `app/api/routers/balances.py` (`GET /groups/{id}/balances`, `GET /balances` alias, `GET /groups/{id}/settle-up`) and `app/api/routers/settlements.py` (`POST /groups/{id}/settlements`, `GET /groups/{id}/settlements`).
+- Created Pydantic v2 schemas in `app/api/schemas/` (`balances.py`, `settlements.py`) supporting the exact brief name-keyed format and ID-based pairs.
+- Added `OverpaymentError` in `app/core/errors.py` (422 `OVERPAYMENT`).
+- Documented "Product enhancement" section in `README.md` (problem, why, design, trade-offs, payments-infrastructure alignment).
+- Added comprehensive API tests in `tests/api/test_balances_settleup.py` covering exact brief JSON format, repayment, overpayment 422, settle-up zeroing all net balances, 6-user transfer count bound (<= 5), cross-group balances alias, and keyset pagination.
+**Why:**
+- Deliver core balance calculation and settle-up product enhancement meeting assignment brief and Decentro infrastructure standards (PROJECT_PLAN.md §6, §7, §11, GUARDRAILS.md D).
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` → 103 passed, 0 failed (95% total coverage, 100% money/domain); `make lint` → ok (ruff & mypy clean)
+**Decisions:**
+- Overpayment bounds check enforces `amount <= min(-debtor_net, creditor_net)`, allowing both direct settlements and simplified multi-hop transfers while preventing debtor/creditor balance sign flips.
+- Brief's name-keyed balances shape is preserved under `balances` while collision-safe opaque public IDs are provided under `pairs` and `net`.
+**Proposed (not built):** None.
+**Commit:** <pending> `feat(balances): balances, settle-up suggestions and recorded settlements`
+**Next:** Phase B6 — Baseline release, seed script, requirement audit (`prompts/baseline/B6_baseline_release.md`).
+
+---
+
 ## 2026-10-30 17:50 — B4 — Expenses: atomic, locked, idempotent
 **Status:** done
 **What changed:**
