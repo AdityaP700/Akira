@@ -41,7 +41,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - BOLA protection returns identical 404 `NOT_FOUND` to non-members.
 **Proposed (not built):**
 - Asymmetric Ed25519 signatures and external anchoring of daily head hashes (documented in `docs/SECURITY.md`).
-**Commit:** <hash> `feat(audit): HMAC hash-chained ledger with verification endpoint`
+**Commit:** 40dbf32 `feat(audit): HMAC hash-chained ledger with verification endpoint`
 **Next:** Phase A5 — Encrypted PII and Blind Indexing (`prompts/advanced/A5_encrypted_pii_and_blind_index.md`).
 
 ---

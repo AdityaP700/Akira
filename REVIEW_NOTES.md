@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <commit-hash> — A4 — Tamper-evident HMAC hash-chained ledger and verification
+## 40dbf32 — A4 — Tamper-evident HMAC hash-chained ledger and verification
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented tamper-evident HMAC-SHA256 hash chaining on all group ledger entries and exposed an audit verification endpoint (`GET /groups/{id}/audit/verify`). Any out-of-band manipulation of ledger amounts, deletions of sequence entries, or direct SQL tampering of underlying expense/settlement rows is cryptographically detected.
 **Files changed:**
