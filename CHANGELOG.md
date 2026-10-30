@@ -35,7 +35,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Pairwise debts net bidirectional debts and drop zero balances.
 - Greedy debt simplification produces at most n - 1 transfers with deterministic user ID tie-breaking.
 **Proposed (not built):** None.
-**Commit:** PENDING `feat(domain): money, split strategies, balances and settle-up`
+**Commit:** 98f798a `feat(domain): money, split strategies, balances and settle-up`
 **Next:** Phase B2 — Schema and repositories (`prompts/baseline/B2_schema_and_repositories.md`).
 
 ## 2026-10-30 15:45 — B0 — Bootstrap service skeleton, Docker, CI, health

@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## PENDING — B1 — Pure domain logic: money, splits, balances, settle-up
+## 98f798a — B1 — Pure domain logic: money, splits, balances, settle-up
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented pure business logic without I/O or framework dependencies in `app/domain/`. Includes integer paise parsing and formatting with float prevention, Equal and Exact split strategies with remainder tie-breaking, net balance and pairwise debt computation, and greedy debt simplification.
 **Files changed:**
