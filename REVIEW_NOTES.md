@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — B4 — Expenses: atomic, locked, idempotent
+## 058546f — B4 — Expenses: atomic, locked, idempotent
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented the core expense creation and listing endpoints with group row-level locking (`SELECT ... FOR UPDATE`), atomic shares computation (EQUAL with deterministic remainder, EXACT with strict sum validation), append-only ledger entries, and SHA-256 fingerprint-based request idempotency.
 **Files changed:**

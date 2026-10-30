@@ -39,7 +39,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Group whose only member is the payer succeeds with 201 and includes `"warning": "NO_OTHER_PARTICIPANTS"`.
 - Ledger entry payload contains amounts and integer IDs only (no user names or PII).
 **Proposed (not built):** None.
-**Commit:** <pending> `feat(expenses): atomic expense creation with shares, ledger and idempotency`
+**Commit:** 058546f `feat(expenses): atomic expense creation with shares, ledger and idempotency`
 **Next:** Phase B5 — Balances and settle-up API (`prompts/baseline/B5_balances_settleup.md`).
 
 ---
