@@ -32,8 +32,25 @@ class ConflictError(AppError):
 
 
 class ValidationError(AppError):
-    def __init__(self, message: str = "Validation failed") -> None:
-        super().__init__(code="VALIDATION_ERROR", message=message, status_code=422)
+    def __init__(self, message: str = "Validation failed", code: str = "VALIDATION_ERROR") -> None:
+        super().__init__(code=code, message=message, status_code=422)
+
+
+class PayerNotMemberError(AppError):
+    def __init__(self, message: str = "Payer is not a member of the group") -> None:
+        super().__init__(code="PAYER_NOT_MEMBER", message=message, status_code=422)
+
+
+class ParticipantNotMemberError(AppError):
+    def __init__(self, message: str = "Participant is not a member of the group") -> None:
+        super().__init__(code="PARTICIPANT_NOT_MEMBER", message=message, status_code=422)
+
+
+class IdempotencyKeyReusedError(AppError):
+    def __init__(
+        self, message: str = "Idempotency key reused with different request payload"
+    ) -> None:
+        super().__init__(code="IDEMPOTENCY_KEY_REUSED", message=message, status_code=422)
 
 
 def _resolve_request_id(request: Request) -> str:

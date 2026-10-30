@@ -24,6 +24,39 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — B4 — Expenses: atomic, locked, idempotent
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented the core expense creation and listing endpoints with group row-level locking (`SELECT ... FOR UPDATE`), atomic shares computation (EQUAL with deterministic remainder, EXACT with strict sum validation), append-only ledger entries, and SHA-256 fingerprint-based request idempotency.
+**Files changed:**
+- `app/api/schemas/expenses.py`: Pydantic request models (`ExpenseIn`, `ExactSplitIn`) and response models (`ExpenseOut`, `ExpenseListOut`) with `extra="forbid"`.
+- `app/core/errors.py`: Added `PayerNotMemberError`, `ParticipantNotMemberError`, and `IdempotencyKeyReusedError` AppError subclasses.
+- `app/repositories/groups.py`: Added `lock_for_update_by_public_id` for atomic group row locking.
+- `app/services/expenses.py`: Implemented transactional `create_expense` use case and keyset paginated `list_expenses`.
+- `app/api/routers/expenses.py`: FastAPI endpoints for `POST /groups/{group_id}/expenses`, `POST /expenses` alias, and `GET /groups/{group_id}/expenses`.
+- `docs/API.md`: API reference documentation with curl examples for expense operations.
+- `tests/api/test_expenses.py`: 10 comprehensive API tests covering equal splits, exact splits, remainder paise tie-breaking, invalid amounts, membership validation, idempotency replay/conflict, single-member warning, crash rollback simulation, and keyset pagination.
+**Behaviour before → after:**
+- Clients can record expenses with EQUAL or EXACT split strategies within groups.
+- `POST /expenses` is supported as a brief-compatible alias.
+- Calls with `Idempotency-Key` are safely deduplicated or rejected with 422 `IDEMPOTENCY_KEY_REUSED` if payload differs.
+- Expenses and shares are atomically appended to the immutable ledger.
+**How to verify:**
+1. `pytest -q --cov=app` → 97 passed (96% total coverage).
+2. `ruff check .`, `ruff format --check .`, and `mypy app/domain app/services` → all pass.
+**Risks / things to look at closely:**
+- Group row lock (`lock_for_update_by_public_id`) is acquired at the beginning of the transaction before reading member state or inserting records.
+- Idempotency key fingerprint incorporates HTTP method, path, and canonical JSON body to prevent collisions across endpoints.
+- Total shares sum is strictly validated before insert to prevent paise rounding drift.
+**Expected follow-up:**
+- Phase B5: Balances & settle-up API (`prompts/baseline/B5_balances_settleup.md`).
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## c08ff69 — B3 — Users, groups, and members API
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented the REST API endpoints and transactional services for users, groups, and membership. Built keyset pagination with opaque base64 cursors, Pydantic schemas with forbidden extra fields, domain error mappings, and comprehensive API tests.

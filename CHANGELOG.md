@@ -19,6 +19,31 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-30 17:50 — B4 — Expenses: atomic, locked, idempotent
+**Status:** done
+**What changed:**
+- Implemented `create_expense` and `list_expenses` in `app/services/expenses.py` with row-level group lock (`SELECT ... FOR UPDATE`), member validations, split strategy execution, append-only ledger entry recording, and idempotency key persistence.
+- Implemented API endpoints in `app/api/routers/expenses.py`: `POST /groups/{group_id}/expenses`, `POST /expenses` (brief-compatible alias requiring `group_id` in body), and keyset-paginated `GET /groups/{group_id}/expenses`.
+- Created Pydantic v2 schemas in `app/api/schemas/expenses.py` enforcing `extra="forbid"`, string trimming, rupee decimal validation, and structured responses.
+- Added error types in `app/core/errors.py`: `PayerNotMemberError` (422 `PAYER_NOT_MEMBER`), `ParticipantNotMemberError` (422 `PARTICIPANT_NOT_MEMBER`), and `IdempotencyKeyReusedError` (422 `IDEMPOTENCY_KEY_REUSED`).
+- Added comprehensive API tests in `tests/api/test_expenses.py` covering EQUAL split (400/400/400 and remainder tie-breaking 333.34/333.33/333.33), EXACT split success/mismatch/non-member, invalid amounts, member addition after expense, idempotency replay and conflict detection, single-payer warning, brief alias, crash rollback simulation, and keyset pagination.
+- Updated `docs/API.md` with curl examples and response schemas for all expense endpoints.
+**Why:**
+- Core write path for recording shared expenses with banking-grade atomicity, auditability, and idempotency (PROJECT_PLAN.md §5-§6, DESIGN_DEEP_DIVE.md §3, GUARDRAILS.md D).
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` → 97 passed, 0 failed (96% total coverage, 100% money/domain); `make lint` → ok (ruff & mypy strict clean)
+**Decisions:**
+- Idempotency key fingerprint computed as SHA-256 of `METHOD:PATH:CANONICAL_JSON_BODY`.
+- Replaying identical request with the same idempotency key returns stored 201 response without duplicate records; differing payload returns 422 `IDEMPOTENCY_KEY_REUSED`.
+- Group whose only member is the payer succeeds with 201 and includes `"warning": "NO_OTHER_PARTICIPANTS"`.
+- Ledger entry payload contains amounts and integer IDs only (no user names or PII).
+**Proposed (not built):** None.
+**Commit:** <pending> `feat(expenses): atomic expense creation with shares, ledger and idempotency`
+**Next:** Phase B5 — Balances and settle-up API (`prompts/baseline/B5_balances_settleup.md`).
+
+---
+
 ## 2026-10-30 17:35 — B3 — Users, groups, and members API
 **Status:** done
 **What changed:**

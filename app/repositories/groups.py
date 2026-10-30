@@ -12,6 +12,12 @@ def lock_for_update(session: Session, group_id: int) -> Group | None:
     return session.scalar(stmt)
 
 
+def lock_for_update_by_public_id(session: Session, public_id: str) -> Group | None:
+    """Lock and retrieve a group row by public ID using SELECT ... FOR UPDATE."""
+    stmt = select(Group).where(Group.public_id == public_id).with_for_update()
+    return session.scalar(stmt)
+
+
 def get_by_id(session: Session, group_id: int) -> Group | None:
     """Retrieve a group by internal integer ID."""
     return session.get(Group, group_id)
