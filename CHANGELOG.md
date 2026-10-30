@@ -34,7 +34,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Used `Annotated[Session, Depends(get_db)]` for FastAPI route dependencies to satisfy ruff B008 and preserve type annotations.
 - In-memory SQLite session override used for unit/API tests locally, while CI provides PostgreSQL 16 service container.
 **Proposed (not built):** None.
-**Commit:** 5c55313 `chore: bootstrap service skeleton, docker, ci`
+**Commit:** 8b3eb77 `chore: bootstrap service skeleton, docker, ci`
 **Next:** Phase B1 — Domain logic (money parsing, split strategies, balances, settle-up pure calculations).
 
 ## 2026-10-30 15:30 — PLAN — Kit created
