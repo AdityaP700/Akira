@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — A2 — Edge hardening, rate limiting, and structured observability (OWASP API3/API4/API6/API8/API9)
+## 0d00fe7 — A2 — Edge hardening, rate limiting, and structured observability (OWASP API3/API4/API6/API8/API9)
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented comprehensive edge security hardening, rate limiting, and structured observability. Added middleware enforcing 64 KB payload caps (413) and JSON content-type restrictions (415), slowapi-powered rate limiting (429 with RFC 6585 Retry-After), security response headers, automatic API doc disablement in prod, regex-based log sanitisation for credentials and PII, route-templated JSON logging, and database timeout handlers (503).
 **Files changed:**

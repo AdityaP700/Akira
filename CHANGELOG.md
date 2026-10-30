@@ -41,7 +41,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Setting `headers_enabled=False` on `slowapi.Limiter` allows standard Pydantic response models across FastAPI routes, while our custom `rate_limit_exceeded_handler` handles injecting `Retry-After` on 429 responses.
 **Proposed (not built):**
 - Distributed Redis backend for multi-instance deployments (deferred to production deployment phase).
-**Commit:** <pending> `feat(security): input limits, rate limiting, security headers, masked logs`
+**Commit:** 0d00fe7 `feat(security): input limits, rate limiting, security headers, masked logs`
 **Next:** Phase A3 — Settlement Payment Lifecycle & Webhooks (`prompts/advanced/A3_settlement_lifecycle_and_webhooks.md`).
 
 ---
