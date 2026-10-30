@@ -43,7 +43,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - API container runs as non-root user (`appuser:appgroup`, UID 10001) for container security hardening.
 **Proposed (not built):**
 - None.
-**Commit:** PENDING `test(deploy): verify containerized service stack and end-to-end smoke test`
+**Commit:** aa1eb96 `test(deploy): verify containerized service stack and end-to-end smoke test`
 **Next:** Release tagging and final evaluator submission.
 
 ---
