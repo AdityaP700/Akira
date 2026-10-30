@@ -485,3 +485,24 @@ curl -X GET "http://localhost:8000/groups/grp_5b8ef1092a48721c40ab21cd83/settlem
   "next_cursor": null
 }
 ```
+
+---
+
+## 4. Error Codes Reference
+
+All error responses return HTTP status codes aligned with RFC standards and an error envelope containing `code`, `message`, and `request_id`.
+
+| HTTP Status | Error Code | Description / Trigger Conditions |
+|---|---|---|
+| `400 Bad Request` | `BAD_REQUEST` | Malformed request syntax or unparseable headers. |
+| `404 Not Found` | `NOT_FOUND` | Specified user or group does not exist. |
+| `409 Conflict` | `ALREADY_MEMBER` | User is already a member of the target group. |
+| `422 Unprocessable` | `VALIDATION_ERROR` | Schema validation error (e.g. empty name, negative amount, float amount, > 2 decimals, unrecognized fields). |
+| `422 Unprocessable` | `PAYER_NOT_MEMBER` | The `paid_by` user is not a member of the group. |
+| `422 Unprocessable` | `PARTICIPANT_NOT_MEMBER` | One or more split participants are not members of the group. |
+| `422 Unprocessable` | `SPLITS_MISMATCH` | Exact shares do not sum to total expense amount, or participants mismatch. |
+| `422 Unprocessable` | `OVERPAYMENT` | Settlement repayment amount exceeds debtor's net debt capacity. |
+| `422 Unprocessable` | `IDEMPOTENCY_KEY_REUSED` | An `Idempotency-Key` was re-submitted with a differing payload or path. |
+| `500 Internal Error`| `INTERNAL_SERVER_ERROR` | Unhandled server error (trace logged with request ID). |
+| `503 Unavailable` | `DATABASE_UNAVAILABLE` | Database health probe failed or connection timeout. |
+

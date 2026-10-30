@@ -19,6 +19,29 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-30 18:20 — B6 — Baseline release: docs, seed, Postman, and requirement audit
+**Status:** done
+**What changed:**
+- Created `scripts/seed_goa_trip.py`: idempotent seed script populating Mohit, Rahul, Ankit, group "Goa Trip", dinner ₹1200 (EQUAL) and cab ₹600 paid by Rahul; outputs brief-compatible balances and settle-up suggestion.
+- Created `postman/expense-sharing.postman_collection.json`: 18-step sequential Postman collection demonstrating the full Goa trip lifecycle with collection variables (`mohit_id`, `rahul_id`, `ankit_id`, `group_id`).
+- Rewrote `README.md` from `docs/design/README_DRAFT.md` reflecting actual codebase architecture, database models, REST endpoints, design trade-offs, and planned advanced phases.
+- Completed `docs/API.md` with Section 4 Error Codes Reference table.
+- Conducted exhaustive requirement audit using research subagent (`bb26ccca-9685-415c-824d-e04cb060ecff`) checking every brief requirement and `PROJECT_PLAN.md (§1-§8)` scope: 100% compliant across 10 audited domains.
+**Why:**
+- Baseline release milestone delivering a self-contained submission that meets all brief specifications before advanced extensions (PROJECT_PLAN.md §1-§8, prompts/baseline/B6_baseline_release.md).
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` → 103 passed, 0 failed (95% total coverage, 100% money/domain); `make lint` → ok (ruff & mypy strict clean)
+**Decisions:**
+- Seeding script uses `SessionLocal()` with explicit `with session.begin():` blocks for clean transaction boundaries across SQLite and PostgreSQL.
+- Postman collection automatically extracts and propagates opaque IDs between sequential requests.
+**Proposed (not built):**
+- Git tag `baseline-v1` pending human approval.
+**Commit:** 069a907 `docs: baseline release docs, seed and postman collection`
+**Next:** Phase A1 — Authentication and group object-level authorization (`prompts/advanced/A1_auth_and_membership.md`).
+
+---
+
 ## 2026-10-30 18:00 — B5 — Balances, settle-up suggestions, and recorded settlements
 **Status:** done
 **What changed:**
