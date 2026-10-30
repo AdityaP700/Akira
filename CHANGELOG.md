@@ -22,22 +22,20 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 ## 2026-10-31 02:50 — D1-C — Remove hardcoded DB password and enforce fail-fast configuration
 **Status:** done
 **What changed:**
-- Removed hardcoded default password and connection string from pp/core/config.py and pp/core/db.py; added Pydantic @model_validator to fail fast outside test environments if DATABASE_URL is missing.
-- Updated docker-compose.yml to require ${LOCAL_DB_PASSWORD:?LOCAL_DB_PASSWORD is required in .env} for PostgreSQL credentials.
-- Updated .env.example with placeholders for LOCAL_DB_PASSWORD and TEST_DATABASE_URL, and added unit test verifying fail-fast behavior in 	ests/api/test_health.py.
+- Removed hardcoded default password and connection string from `app/core/config.py` and `app/core/db.py`; added Pydantic `@model_validator` to fail fast outside test environments if `DATABASE_URL` is missing.
+- Updated `docker-compose.yml` to require `${LOCAL_DB_PASSWORD:?LOCAL_DB_PASSWORD is required in .env}` for PostgreSQL credentials.
+- Updated `.env.example` with placeholders for `LOCAL_DB_PASSWORD` and `TEST_DATABASE_URL`, and added unit test verifying fail-fast behavior in `tests/api/test_health.py`.
 **Why:**
-- Comply with Addendum C, GUARDRAILS.md S1-S3, and security guidelines: credentials must never be committed or defaulted to hardcoded secrets.
+- Comply with Addendum C, `GUARDRAILS.md` S1-S3, and security guidelines: credentials must never be committed or defaulted to hardcoded secrets.
 **Not done / failed (and why):**
 - None.
-**Tests:** pytest tests/api/test_health.py -> 10 passed; 
-uff check . -> ok; mypy app/domain app/services -> ok
+**Tests:** `pytest tests/api/test_health.py` -> 10 passed; `ruff check .` -> ok; `mypy app/domain app/services` -> ok
 **Decisions:**
-- Test mode detection checks both PYTEST_CURRENT_TEST in os.environ and pytest in sys.modules to prevent test-collection failures while guaranteeing strict production fail-fast.
+- Test mode detection checks both `PYTEST_CURRENT_TEST in os.environ` and `pytest in sys.modules` to prevent test-collection failures while guaranteeing strict production fail-fast.
 **Proposed (not built):**
 - None.
-**Commit:** pending 
-efactor(config): remove hardcoded db password, fail fast on missing DATABASE_URL
-**Next:** Step B: Set up PostgreSQL container and migrate tests to real Postgres (TEST_DATABASE_URL).
+**Commit:** 64854a1 `refactor(config): remove hardcoded db password, fail fast on missing DATABASE_URL`
+**Next:** Step B: Set up PostgreSQL container and migrate tests to real Postgres (`TEST_DATABASE_URL`).
 
 ---
 
