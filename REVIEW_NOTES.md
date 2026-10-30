@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <commit hash> — A6 — Reliability proofs, STRIDE threat model, demo walkthrough, and final submission
+## b8c223a — A6 — Reliability proofs, STRIDE threat model, demo walkthrough, and final submission
 **Author:** Antigravity · **Sub-agents used:** `bb26ccca-9685-415c-824d-e04cb060ecff: research → Requirement & Claim Traceability Auditor`
 **Summary:** Delivered formal concurrency and reliability proof tests, comprehensive STRIDE threat modeling in `docs/SECURITY.md`, a scripted 4-minute interactive demonstration in `DEMO.md`, an expanded 29-request Postman collection, complete API and schema references through schema revision 005, and exhaustive requirement-to-evidence and claim-to-test traceability matrices. All 169 automated tests pass with 93% total code coverage and 100% strict type and lint compliance.
 **Files changed:**

@@ -45,7 +45,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Unauthenticated requests return 401 `UNAUTHORIZED`; non-member access to existing groups returns 404 `NOT_FOUND` to prevent group ID enumeration (OWASP API1).
 **Proposed (not built):**
 - Asynchronous outbox worker and distributed rate limiting via Redis (documented as production roadmap in `README.md` §15).
-**Commit:** <hash> `docs: threat model, reliability proofs and final submission docs`
+**Commit:** b8c223a `docs: threat model, reliability proofs and final submission docs`
 **Next:** Confirm submission readiness and prompt human regarding release tagging (`v2-advanced`).
 
 ---
