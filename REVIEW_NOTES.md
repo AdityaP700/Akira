@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — B3 — Users, groups, and members API
+## c08ff69 — B3 — Users, groups, and members API
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented the REST API endpoints and transactional services for users, groups, and membership. Built keyset pagination with opaque base64 cursors, Pydantic schemas with forbidden extra fields, domain error mappings, and comprehensive API tests.
 **Files changed:**

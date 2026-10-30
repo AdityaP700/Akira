@@ -39,7 +39,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - All request models strictly forbid extra fields and strip whitespace.
 - StaticPool used for SQLite in-memory test fixtures to ensure session connection consistency across request threads.
 **Proposed (not built):** None.
-**Commit:** <pending> `feat(api): users, groups and membership endpoints`
+**Commit:** c08ff69 `feat(api): users, groups and membership endpoints`
 **Next:** Phase B4 — Atomic, locked, idempotent expenses API (`prompts/baseline/B4_expenses_atomic_idempotent.md`).
 
 ---
