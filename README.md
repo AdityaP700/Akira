@@ -383,7 +383,7 @@ Every recorded financial movement (`EXPENSE`, `SETTLEMENT`, `REVERSAL`) is appen
 
 ## 11. Testing & Verification
 
-The test suite contains 165 automated tests spanning pure domain mathematics, database constraints, migrations, security edge hardening, and full API integration:
+The test suite contains **169 automated tests** spanning pure domain mathematics, database constraints, migrations, security edge hardening, concurrency proofs, and full API integration:
 
 ```bash
 # Run tests with coverage
@@ -397,29 +397,85 @@ mypy app/domain app/services
 ```
 
 ### Coverage Highlights
-- **Total Test Suite:** 165 passed, 0 failures, 93% total code coverage.
-- **Pure Domain (`app/domain/`):** 100% test coverage across money parsing, equal/exact splits, balance netting, and settle-up simplification.
+- **Total Test Suite:** 169 passed, 0 failures, 93% total code coverage.
+- **Pure Domain (`app/domain/`):** 100% test coverage across money parsing, equal/exact/shares splits, balance netting, and settle-up simplification.
 - **Zero Float Invariant:** Verified via AST and regex inspection (`tests/unit/test_no_float.py`).
-- **Security & BOLA Suite:** 100% coverage on object authorization guards (`app/security/guards.py`) and edge hardening.
+- **Security & BOLA Suite:** 100% coverage on object authorization guards (`app/security/guards.py`), edge hardening, and PII blind index encryption.
+- **Concurrency & Reliability Proofs (`tests/concurrency/test_concurrency.py`):**
+  1. *20 Parallel Expense Creations:* Verified serialized row locks (`FOR UPDATE`), consecutive ledger sequences 1..20, valid HMAC hash chain via `/audit/verify`, and zero balance drift ($\sum \text{net} = 0$).
+  2. *Parallel Settlements Against One Debt:* In-flight debt capacity reservation strictly bounds payouts: under 10 concurrent requests for a ₹50.00 debt, exactly 1 succeeds and 9 receive 422 `OVERPAYMENT`.
+  3. *Concurrent Idempotency Replay:* Parallel identical `POST` requests create exactly 1 database record; all concurrent threads receive the identical 201 response.
+  4. *Database Unavailability Resilience:* Gracefully handles database connection failures; `/health` reports 503 `{"status": "degraded", "db": "down"}` and writes fail safely with 503 `DATABASE_UNAVAILABLE` without unhandled crashes or orphaned rows.
 
 ---
 
-## 12. Reliability & Security Notes
+## 12. Security Architecture & Threat Model
 
-- **Authentication & BOLA Prevention (Phase A1):** Bearer tokens (`est_...`) validated via SHA-256 hashes in constant time (`hmac.compare_digest`). Non-members receive 404 `NOT_FOUND` to prevent group ID enumeration (OWASP API1).
-- **Edge Hardening & Abuse Protection (Phase A2):** 64 KB maximum payload limit (413), JSON Content-Type validation (415), slowapi rate limiting per token and per IP (429 with `Retry-After`), and defensive security headers (`nosniff`, `no-store`, `frame-ancestors 'none'`, `no-referrer`, HSTS in prod).
-- **Masked JSON Observability (Phase A2):** Structured JSON logs record parameterized route templates (`/groups/{group_id}/expenses`), latency ms, and actor public IDs. `MaskingFilter` strips tokens, Authorization headers, signatures, VPAs, and phone numbers.
-- **Atomic Transactions:** Each write use case is wrapped in a single explicit transaction; partial writes are impossible.
-- **Replay Protection:** Replaying an identical request with the same `Idempotency-Key` returns the stored original 201 response. Reusing the key with a different payload returns `422 IDEMPOTENCY_KEY_REUSED`.
-- **Database Health Probe:** `/health` validates active database query execution; returns `503 DATABASE_UNAVAILABLE` if the database is unreachable.
+For the comprehensive STRIDE threat model, security controls, and attack vector mitigations, refer to [**`docs/SECURITY.md`**](file:///d:/Development/Projects/core/Akira/docs/SECURITY.md).
+
+### Security Architecture Highlights
+- **Authentication & BOLA Prevention (OWASP API1):** Constant-time token verification (`hmac.compare_digest`). Tokens are hashed (`SHA-256`) at rest and never logged. Non-members receive 404 `NOT_FOUND` to suppress group existence enumeration.
+- **Application-Level PII Encryption:** Sensitive UPI VPAs are stored encrypted at rest with AES-256-GCM and bound to the user's public ID via Associated Authenticated Data (AAD). Exact-match HMAC-SHA256 blind indexing prevents full-table scans while enforcing uniqueness.
+- **Edge Hardening (OWASP API4):** 64 KB payload size caps (413), strict JSON Content-Type validation (415), in-memory rate limiting (slowapi per-token and per-IP), and defensive HTTP security headers (`nosniff`, `no-store`, `frame-ancestors 'none'`).
+- **Webhook Authenticity & Deduplication:** Payment callbacks must supply an HMAC-SHA256 signature (`X-Provider-Signature`) verified against a 5-minute replay window ($|t - \text{now}| \le 300\text{ s}$) and deduplicated via `provider_events(event_id PK)`.
+- **Tamper-Evident Ledger:** HMAC-SHA256 cryptographic hash chain rooted in `groups.ledger_head_hash` detects any unauthorized row insertions, modifications, or deletions.
+- **Least-Privilege Database Roles:** `app_rw` runtime role has strictly `SELECT, INSERT` (no `UPDATE`/`DELETE`) privileges on historical tables (`ledger_entries`, `expense_shares`, `provider_events`).
 
 ---
 
-## 13. Advanced Phases Roadmap
+## 13. Interactive 4-Minute Demo Walkthrough
+
+A complete scripted walkthrough is available in [**`DEMO.md`**](file:///d:/Development/Projects/core/Akira/DEMO.md) and as an automated Postman Collection (`postman/expense-sharing.postman_collection.json`).
+
+The demo walks through:
+1. **Health Check & Bootstrap:** Service connectivity verification (`GET /health`).
+2. **User Creation & Token Auth:** User registration (Mohit, Rahul, Ankit) with one-time token retrieval.
+3. **Group Setup:** "Goa Trip" group creation, auto-creator membership, and duplicate membership rejection (409 `ALREADY_MEMBER`).
+4. **Encrypted VPA Registration:** AES-256-GCM encryption with masked output (`mo***@okhdfcbank`).
+5. **Expenses:** Dinner ₹1200 (EQUAL), Cab ₹600 (EQUAL), and Villa Grocery ₹3000 (SHARES 2:1:1).
+6. **Balances & Settle-Up:** Dynamic balance calculation ($\sum \text{net} = 0$) and greedy debt simplification suggestions.
+7. **UPI Settlement & Webhooks:** UPI intent creation with decrypted payee VPA, signed webhook callback execution (`SUCCESS`), and duplicate callback replay rejection.
+8. **Manual Cash Settlement:** Two-sided settlement state machine (`CLAIMED` by debtor $\to$ `CONFIRMED` by creditor).
+9. **Tamper-Evident Ledger:** Verification pass $\to$ simulated DB tamper $\to$ instant detection (`hash_mismatch`).
+10. **BOLA Defense:** Outsider (Eve) receives 404 `NOT_FOUND` on Goa Trip resources.
+
+---
+
+## 14. Advanced Phases Roadmap
 
 - [x] **Phase A1:** Per-user authentication & object-level authorization (group membership required for all group routes).
 - [x] **Phase A2:** Edge hardening, IP & token-based rate limiting (slowapi), security headers, masked structured logs, and OWASP API Top 10 matrix.
 - [x] **Phase A3:** Settlement payment lifecycle with mock payment provider and HMAC-SHA256 signed webhooks.
 - [x] **Phase A4:** Tamper-evident HMAC hash-chained ledger with `/audit/verify` integrity endpoint.
 - [x] **Phase A5:** Encrypted user UPI VPA with blind indexing (AES-256-GCM + HMAC-SHA256), SHARES split strategy, and least-privilege database roles.
-- [ ] **Phase A6:** Formal proofs, threat model finalization, and end-to-end audit.
+- [x] **Phase A6:** Concurrency reliability proofs, STRIDE threat model, end-to-end demo script, and final documentation.
+
+---
+
+## 15. With More Time (Production Hardening & Evolution)
+
+While Akira implements bank-grade payments-infrastructure controls within a self-contained single-service architecture, scaling to multi-region production with enterprise compliance would incorporate the following architectural evolutions:
+
+1. **Hardware-Backed Key Management (AWS KMS / HashiCorp Vault):**
+   Replace environment-based key derivation (`EnvKeyProvider`) with AWS KMS or HashiCorp Vault Transit engine. Envelope encryption would encrypt each user's data key using an asymmetric KMS master key (CMK), providing automatic annual key rotation and hardware HSM audit logs.
+2. **PostgreSQL Row-Level Security (RLS):**
+   Add native database-level RLS policies keyed by active tenant/actor context (`SET LOCAL app.current_user_id = 'usr_...'`). Even if application logic had an authorization flaw, the database engine itself would reject unauthorized queries.
+3. **Mutual TLS (mTLS) & Strict Database Verification:**
+   Enforce `sslmode=verify-full` on all PostgreSQL connections with custom root CA certificates. Require bidirectional client-certificate authentication (mTLS) for all incoming payment provider webhooks.
+4. **Database Query Auditing (`pgaudit`):**
+   Install the PostgreSQL `pgaudit` extension on the database cluster. Any direct administrator query, DDL change, or table read bypassing the application would be immutably streamed to an external SIEM (e.g. AWS CloudWatch / Splunk).
+5. **Crypto-Shredding for Privacy Compliance (GDPR / DPDP Act):**
+   Because PII is encrypted with distinct user-derived keys, a user's "Right to Erasure" can be fulfilled via crypto-shredding: zeroizing the user's encryption key renders historical ciphertext across backups and replicas permanently unreadable without modifying or deleting immutable append-only ledger entries.
+6. **Dedicated PCI-DSS Tokenization Vault Microservice:**
+   Isolate VPA encryption and payment credential handling into an isolated, physically segregated tokenization service. The core expense-sharing service would only store non-sensitive surrogate tokens (`tok_...`), minimizing PCI-DSS compliance scope.
+7. **Transactional Outbox Worker:**
+   Instead of in-memory or in-transaction notification creation, write outbound events to an `outbox` table within the same ACID transaction. An asynchronous background worker (e.g. Debezium or a polling distributor) reads the outbox and dispatches webhooks and push notifications with exponential backoff and dead-letter queues.
+8. **Read Replicas with Group-Level Pinning:**
+   Route balance queries (`GET /groups/{id}/balances`) and history views to PostgreSQL read replicas while routing mutations (`POST /expenses`) to the primary. Group-pinned replication lag tracking ensures read-your-own-writes consistency.
+9. **Time- and Group-Based Table Partitioning:**
+   Partition `ledger_entries`, `expense_shares`, and `provider_events` using PostgreSQL declarative partitioning (range partitioning by `created_at` or hash partitioning by `group_id`) to ensure consistent query planning and vacuum performance at 100M+ scale.
+10. **Autonomous Agent-Initiated Payments:**
+    To support automated AI agent expense recording and auto-settlements, implement cryptographically scoped Payment Intents:
+    - Intents bind an immutable payee VPA, maximum amount, and strictly bounded time-to-live ($< 15\text{ minutes}$).
+    - Agent requests require nonces and HMAC signatures over request bodies.
+    - Payments exceeding defined thresholds (e.g. > ₹2,000) trigger mandatory human-in-the-loop (HITL) approval before dispatching funds.

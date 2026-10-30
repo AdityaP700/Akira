@@ -147,3 +147,60 @@ Akira enforces structural privilege separation between schema migrations and run
 - **Crypto-Shredding for Right to Be Forgotten:** Under GDPR / DPDP data protection regulations, deleting a user's individual DEK instantly and permanently shreds all their encrypted PII across all historical database tables and immutable backup snapshots without rewriting append-only ledgers.
 - **Row-Level Security (RLS) with FORCE:** PostgreSQL RLS policies can bind tenant access at the database engine level (e.g. `USING (group_id IN (SELECT group_id FROM group_members WHERE user_id = current_setting('app.current_user_id')::bigint))`), providing a redundant defense-in-depth boundary against application logic bugs.
 - **Transit & Audit Hardening:** TLS with `sslmode=verify-full`, SCRAM-SHA-256 password hashing, and `pgaudit` extension for tamper-resistant database query auditing.
+
+---
+
+## 7. STRIDE Threat Model & Defense-in-Depth Analysis
+
+Akira applies the Microsoft STRIDE threat modeling methodology across all core architectural assets:
+
+### STRIDE Control Matrix
+
+| Asset | Threat Category | Threat Description | Architectural & Engineering Control | Verification Test / Status |
+|---|---|---|---|---|
+| **Tokens** | **Spoofing (S)** | Attacker spoofs user identity using stolen or forged API tokens. | Cryptographically strong 32-byte tokens (`est_...`) generated via `secrets.token_urlsafe(32)`. Stored solely as SHA-256 hashes in database (`users.token_hash`). Constant-time verification via `hmac.compare_digest`. One-click self-serve rotation (`POST /users/me/token/rotate`). | `tests/api/test_auth_and_bola.py::test_token_rotation`, `test_authentication_failures` |
+| **Tokens** | **Information Disclosure (I)** | Accidental exposure of tokens in application logs, error traces, or Git commits. | Tokens prefixed with `est_` for automated secret scanning detection (GitHub Secret Scanning, Gitleaks). Stripped by `MaskingFilter` before writing JSON access logs. Output schemas display token exactly once at registration. | `tests/api/test_edge_hardening.py::test_log_masking_filter_and_formatter` |
+| **Ledger** | **Tampering (T)** | Malicious insider or SQL injection alters historical expense or settlement amounts. | Append-only HMAC-SHA256 hash chaining on all `ledger_entries`. `prev_hash` linkage and group-level `ledger_head_hash`. Verification endpoint `GET /groups/{id}/audit/verify` recomputes chain and cross-checks payloads against underlying entity rows. | `tests/api/test_audit_verify.py::test_audit_tampered_payload_detected`, `test_audit_tampered_expense_row_detected` |
+| **Ledger** | **Repudiation (R)** | Participant denies participating in an expense or receiving a settlement. | Immutable `expense_shares` and `ledger_entries` record exact timestamps, creator IDs, and share amounts. State transitions (`CLAIMED` -> `CONFIRMED`) require positive receiver acknowledgment. | `tests/api/test_settlement_lifecycle.py::test_settlement_cash_claim_and_receiver_confirmation` |
+| **VPAs** | **Information Disclosure (I)** | Plaintext bank accounts or UPI handles leaked in database dumps or API responses. | Application-level AES-256-GCM encryption with 96-bit random nonce. User public ID bound as Associated Authenticated Data (AAD). API responses and logs output masked strings only (`al***@bank`). | `tests/api/test_pii_and_shares.py::test_vpa_raw_db_contains_no_plaintext`, `test_user_profile_masked_vpa` |
+| **VPAs** | **Tampering (T)** | Attacker transplants valid ciphertext from another user's record to spoof payment destination. | AES-256-GCM authenticated encryption binds user public ID as AAD. Decrypting with any other user ID raises `InvalidTag` and halts processing immediately. | `tests/api/test_pii_and_shares.py::test_vpa_decryption_round_trip_and_tamper_detection` |
+| **Webhook Endpoint** | **Spoofing (S)** | Attacker calls webhook URL pretending to be the payment provider to mark debts settled. | Webhooks verified with HMAC-SHA256 over raw request body using provider secret key (`X-Provider-Signature`). | `tests/api/test_settlement_lifecycle.py::test_webhook_invalid_signature_rejected` |
+| **Webhook Endpoint** | **Repudiation / Replay (R)** | Attacker captures and re-sends valid webhook callback to re-trigger settlement side-effects. | Timestamp replay window enforced ($\pm 300\text{ s}$). Idempotent event deduplication via `provider_events(event_id PK)`. Monotonic forward-only state transitions. | `tests/api/test_settlement_lifecycle.py::test_webhook_replay_protection_and_duplicate_dedup` |
+| **Database** | **Elevation of Privilege (E)** | Compromised application connection drops tables, modifies schema, or deletes financial history. | Structural dual-role privilege model (`scripts/init_db_roles.sql`): `app_owner` (DDL migrations) vs `app_rw` (application DML). `UPDATE` and `DELETE` on append-only tables (`ledger_entries`, `expense_shares`, `provider_events`) are revoked at database engine level. | `tests/api/test_pii_and_shares.py::test_db_roles_least_privilege_grants_and_policy` |
+| **Database** | **Denial of Service (D)** | Unbounded request floods or concurrent overpayment attempts degrade database performance. | Request body cap (64 KB). SlowAPI rate limiting per IP and per token. Group row locking (`SELECT ... FOR UPDATE`) prevents deadlocks. In-flight debt capacity reservation blocks parallel overpayment. | `tests/concurrency/test_concurrency.py::test_parallel_settlements_debt_reservation_prevents_overpayment`, `test_20_parallel_expenses_consecutive_seqs_and_zero_drift` |
+
+---
+
+### Threat Deep Dives & Defensive Controls
+
+#### 1. Network Attacks & Perimeter Isolation
+- **Transport Security:** In production, TLS 1.3 termination occurs at an outer reverse proxy/load balancer (e.g. NGINX, Cloudflare, AWS ALB) with HTTP Strict Transport Security (`HSTS: max-age=31536000; includeSubDomains; preload`).
+- **Network Segmentation:** The PostgreSQL database resides strictly within a private Docker bridge network (`akira-internal`). Production compose profiles do not publish port 5432 to the host or internet.
+- **Database Transit Encryption:** Production database connections configure `sslmode=verify-full` with root CA pinning, preventing man-in-the-middle inspection on internal database connections.
+
+#### 2. Phishing & Stolen Token Safeguards
+- **Revocation & Self-Serve Rotation:** Users can instantly revoke compromised tokens via `POST /users/me/token/rotate`. The old token is invalidated immediately within an atomic database transaction.
+- **Prefix Matching for Secret Scanning:** All bearer tokens are formatted with the prefix `est_` (`est_` + 32 URL-safe characters), enabling instant identification by automated GitHub Secret Scanning and pre-commit hooks.
+- **Hash-Only Storage:** Raw tokens are never stored in the database. Even with a complete database breach, an attacker obtains only SHA-256 hashes, preventing token recovery or replay.
+- **Roadmap:** Implementation of Demonstrating Proof-of-Possession (DPoP, RFC 9449) and device-bound ephemeral session keys to make stolen tokens useless on foreign hardware.
+
+#### 3. Malicious Payloads & Malware Uploads
+- **Zero Upload Surface:** Akira exposes zero file upload endpoints. Multipart form parsing is completely absent from the codebase.
+- **Strict Size Caps:** Outer middleware enforces a strict 64 KB payload size limit on Content-Length and streaming chunked bodies, returning 413 `PAYLOAD_TOO_LARGE`.
+- **Strict Schema Validation:** Every request model enforces Pydantic v2 `extra="forbid"`. Unrecognized keys, unexpected property types, or deep polymorphic injection payloads are rejected with 422 `UNPROCESSABLE_ENTITY`.
+
+#### 4. Forged & Replayed Provider Callbacks
+- **Cryptographic Verification Before Parsing:** HMAC-SHA256 signatures are calculated over raw unparsed request bytes. JSON deserialization occurs only *after* signature verification succeeds.
+- **Strict Timestamp Tolerance:** Webhook timestamps are verified against server UTC time. Callbacks older than 300 seconds or more than 300 seconds in the future are rejected with 401 `STALE_TIMESTAMP`.
+- **Deduplication Ledger:** The `provider_events` table enforces unique event ID storage. Redelivered callbacks are acknowledged with HTTP 200 without re-executing state mutations or ledger appends.
+
+#### 5. Insider with Direct Database Access
+- **Cryptographic Hash Chain:** Direct modifications to historical records (`UPDATE ledger_entries SET payload = ...`) break the HMAC hash chain. Verification via `GET /groups/{id}/audit/verify` immediately flags `valid: false` with the exact sequence number and failure reason.
+- **Application-Layer PII Encryption:** Sensitive VPAs are encrypted with AES-256-GCM before reaching the database driver. Direct SQL inspection reveals only ciphertext, random nonces, and HMAC blind indexes.
+- **Database Engine Least Privilege:** The application role (`app_rw`) lacks ownership of tables and is stripped of `UPDATE` and `DELETE` privileges on append-only financial records.
+
+#### 6. Agent-Initiated Payments & Autonomous Systems (Future Roadmap)
+As payment systems integrate with autonomous AI agents, Akira's architecture is designed to support agentic payment safety:
+1. **Cryptographically Scoped Payment Intents:** Payment authorizations generated by AI agents must specify immutable payee, exact amount, and an expiration timestamp signed with the agent's private key.
+2. **Velocity Limits & Tiered Approvals:** Autonomous payment initiation is constrained by strict velocity limits (e.g. max ₹5,000/hour). Settlements exceeding threshold amounts mandate multi-party human confirmation (`CLAIMED` -> `CONFIRMED`).
+3. **Execution Guardrails:** Autonomous agents interact solely through validated API endpoints requiring Idempotency-Keys, eliminating accidental double-charges from agent retry loops.

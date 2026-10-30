@@ -60,6 +60,21 @@
       "key": "notification_id",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "cash_settlement_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eve_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eve_token",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -1052,6 +1067,264 @@
               "    pm.response.to.have.status(200);",
               "    var jsonData = pm.response.json();",
               "    pm.expect(jsonData.read).to.eql(true);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "24. Set Payee VPA (Mohit registers UPI VPA)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"vpa\": \"mohit.dec@okhdfcbank\"}"
+        },
+        "url": {
+          "raw": "{{base_url}}/users/me/vpa",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users",
+            "me",
+            "vpa"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"VPA updated with masked format\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var data = pm.response.json();",
+              "    pm.expect(data.vpa_masked).to.include(\"***@\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "25. Verify Group Ledger Integrity (Cryptographic Chain)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/groups/{{group_id}}/audit/verify",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "audit",
+            "verify"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Ledger chain is cryptographically valid\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var data = pm.response.json();",
+              "    pm.expect(data.valid).to.eql(true);",
+              "    pm.expect(data.entries).to.be.above(0);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "26. Record Cash Settlement Claim (Rahul pays Mohit)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{rahul_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"from_user\": \"{{rahul_id}}\",\n  \"to_user\": \"{{mohit_id}}\",\n  \"amount\": \"200.00\",\n  \"method\": \"CASH\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/groups/{{group_id}}/settlements",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "settlements"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Cash settlement created with status CLAIMED\", function () {",
+              "    pm.response.to.have.status(201);",
+              "    var data = pm.response.json();",
+              "    pm.expect(data.status).to.eql(\"CLAIMED\");",
+              "    pm.collectionVariables.set(\"cash_settlement_id\", data.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "27. Confirm Cash Settlement (Mohit confirms receipt)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/groups/{{group_id}}/settlements/{{cash_settlement_id}}/confirm",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "settlements",
+            "{{cash_settlement_id}}",
+            "confirm"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Cash settlement confirmed\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var data = pm.response.json();",
+              "    pm.expect(data.status).to.eql(\"CONFIRMED\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "28. Create Outsider User - Eve",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Eve\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/users",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Outsider created with token\", function () {",
+              "    pm.response.to.have.status(201);",
+              "    var data = pm.response.json();",
+              "    pm.collectionVariables.set(\"eve_id\", data.id);",
+              "    pm.collectionVariables.set(\"eve_token\", data.token);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "29. BOLA Authorization Check (Non-Member Eve gets 404)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{eve_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/groups/{{group_id}}/balances",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "balances"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Non-member receives 404 NOT_FOUND\", function () {",
+              "    pm.response.to.have.status(404);",
+              "    var data = pm.response.json();",
+              "    pm.expect(data.error.code).to.eql(\"NOT_FOUND\");",
               "});"
             ],
             "type": "text/javascript"
