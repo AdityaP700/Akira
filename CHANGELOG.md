@@ -39,7 +39,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - All API and concurrency tests strictly require `TEST_DATABASE_URL` pointing to PostgreSQL 16. If unreachable, tests fail fast immediately without SQLite fallback.
 **Proposed (not built):**
 - None.
-**Commit:** PENDING `docs(honesty): document sqlite vs postgresql verification correction`
+**Commit:** e012406 `docs(honesty): document sqlite vs postgresql verification correction`
 **Next:** D1 Part 3: Containerized smoke test (`docker compose up --build`), verify healthcheck, and confirm production readiness.
 
 ---

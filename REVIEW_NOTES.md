@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## PENDING — D1-D — Correction: Previous in-memory SQLite testing vs. verified PostgreSQL 16 test suite
+## e012406 — D1-D — Correction: Previous in-memory SQLite testing vs. verified PostgreSQL 16 test suite
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Appended formal correction disclosing previous in-memory SQLite testing and simulated locks prior to commit 3df5bee. Documented the 5 unproven claims and confirmed they are now 100% verified against live PostgreSQL 16.
 **Files changed:**
