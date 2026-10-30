@@ -21,6 +21,21 @@ class AppError(Exception):
         self.status_code = status_code
 
 
+class NotFoundError(AppError):
+    def __init__(self, message: str = "Resource not found") -> None:
+        super().__init__(code="NOT_FOUND", message=message, status_code=404)
+
+
+class ConflictError(AppError):
+    def __init__(self, code: str = "ALREADY_MEMBER", message: str = "Resource conflict") -> None:
+        super().__init__(code=code, message=message, status_code=409)
+
+
+class ValidationError(AppError):
+    def __init__(self, message: str = "Validation failed") -> None:
+        super().__init__(code="VALIDATION_ERROR", message=message, status_code=422)
+
+
 def _resolve_request_id(request: Request) -> str:
     return getattr(request.state, "request_id", None) or get_request_id() or "unknown"
 
@@ -104,4 +119,4 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(Exception, unhandled_exception_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(Exception, unhandled_exception_handler)

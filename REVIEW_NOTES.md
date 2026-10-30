@@ -24,6 +24,40 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — B3 — Users, groups, and members API
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented the REST API endpoints and transactional services for users, groups, and membership. Built keyset pagination with opaque base64 cursors, Pydantic schemas with forbidden extra fields, domain error mappings, and comprehensive API tests.
+**Files changed:**
+- `app/api/schemas/users.py`: Pydantic input/output schemas with string trimming and extra forbidden.
+- `app/api/schemas/groups.py`: Pydantic input/output schemas for groups and members.
+- `app/core/pagination.py`: Keyset cursor encoder and decoder (`created_at` + internal `id`).
+- `app/core/errors.py`: Added `NotFoundError`, `ConflictError`, `ValidationError` subclasses.
+- `app/repositories/models.py`: Added Python-level UTC timestamp defaults for consistent microsecond precision.
+- `app/services/users.py`: Transactional user creation and keyset paginated listing.
+- `app/services/groups.py`: Transactional group creation, member addition with duplicate check, and member listing.
+- `app/api/routers/users.py`: FastAPI endpoints for `POST /users` and `GET /users`.
+- `app/api/routers/groups.py`: FastAPI endpoints for `POST /groups`, `POST /groups/{id}/members`, `GET /groups/{id}/members`.
+- `docs/API.md`: API reference documentation with request/response schemas and curl examples.
+- `tests/api/test_users_groups.py`: Test suite testing happy paths, validation failures, 404s, 409s, and multi-page pagination.
+**Behaviour before → after:**
+- Clients can now create and list users, create groups, add members to groups, and list group members.
+- Keyset pagination is fully supported via opaque cursor parameter.
+**How to verify:**
+1. `pytest -q --cov=app` → 87 passed (97% total coverage).
+2. `ruff check .`, `ruff format --check .`, and `mypy app/domain app/services` → all pass.
+**Risks / things to look at closely:**
+- Keyset cursor decodes `(created_at, item_id)` — handles tie breaking when multiple rows share identical timestamps.
+- Group membership check enforces that users and groups must exist and prevents duplicate membership (409 `ALREADY_MEMBER`).
+**Expected follow-up:**
+- Phase B4: Atomic, locked, idempotent expenses API (`POST /groups/{id}/expenses`, `GET /groups/{id}/expenses`).
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 078ddfc — B2 — Database schema, Alembic migrations, repositories
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented the complete relational schema with Alembic migrations, SQLAlchemy 2.0 models, and repository functions. Built tables with DB-level constraints (integer paise limits, non-negative shares, no self-settlements, name/description lengths) and created the append-only ledger and idempotency storage.

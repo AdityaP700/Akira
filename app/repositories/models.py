@@ -11,7 +11,7 @@ Tables:
 - idempotency_keys
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -47,7 +47,10 @@ class User(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )
 
 
@@ -66,7 +69,10 @@ class Group(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     ledger_head_seq: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )
 
 
@@ -80,7 +86,10 @@ class GroupMember(Base):
         BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), primary_key=True
     )
     joined_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )
 
 
@@ -115,7 +124,10 @@ class Expense(Base):
     description: Mapped[str] = mapped_column(String(200), nullable=False)
     split_type: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )
 
 
@@ -170,7 +182,10 @@ class Settlement(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="CONFIRMED")
     method: Mapped[str] = mapped_column(String(20), nullable=False, default="OTHER")
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )
 
 
@@ -193,7 +208,10 @@ class LedgerEntry(Base):
         JSON().with_variant(JSONB(), "postgresql"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )
 
 
@@ -208,5 +226,8 @@ class IdempotencyKey(Base):
         JSON().with_variant(JSONB(), "postgresql"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )

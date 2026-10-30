@@ -19,6 +19,31 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-30 17:35 — B3 — Users, groups, and members API
+**Status:** done
+**What changed:**
+- Implemented Pydantic v2 schemas (`extra="forbid"`) for users and groups in `app/api/schemas/` (`users.py`, `groups.py`).
+- Built keyset pagination with opaque base64 cursor (`created_at`, internal `id`) in `app/core/pagination.py`.
+- Implemented use-case transactions in `app/services/` (`users.py`, `groups.py`) and FastAPI endpoints in `app/api/routers/` (`users.py`, `groups.py`).
+- Added specialized application error types (`NotFoundError`, `ConflictError`, `ValidationError`) in `app/core/errors.py`.
+- Auth seam stubbed with `get_actor` in `app/api/deps.py` returning `None` for baseline.
+- Added API tests in `tests/api/test_users_groups.py` covering creation, validation (empty strings, whitespace-only, extra fields), 404s, 409 duplicate memberships, and multi-page keyset pagination.
+- Added REST API documentation in `docs/API.md` with endpoints summary and curl examples.
+**Why:**
+- Deliver core REST resources meeting assignment brief and project plan (PROJECT_PLAN.md §6, GUARDRAILS.md E2, E3).
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` → 87 passed, 0 failed (97% total coverage); `make lint` → ok (ruff & mypy clean)
+**Decisions:**
+- Keyset cursor encodes `(created_at, item_id)` in URL-safe base64.
+- All request models strictly forbid extra fields and strip whitespace.
+- StaticPool used for SQLite in-memory test fixtures to ensure session connection consistency across request threads.
+**Proposed (not built):** None.
+**Commit:** <pending> `feat(api): users, groups and membership endpoints`
+**Next:** Phase B4 — Atomic, locked, idempotent expenses API (`prompts/baseline/B4_expenses_atomic_idempotent.md`).
+
+---
+
 ## 2026-10-30 17:20 — B2 — Database schema, Alembic migrations, repositories
 **Status:** done
 **What changed:**
