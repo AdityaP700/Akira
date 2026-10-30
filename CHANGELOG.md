@@ -19,6 +19,26 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-30 17:20 — B2 — Database schema, Alembic migrations, repositories
+**Status:** done
+**What changed:**
+- Created Alembic configuration (`alembic.ini`, `alembic/env.py`) and initial migration `001_initial_schema.py` defining users, groups, group_members, expenses, expense_shares, settlements, ledger_entries, and idempotency_keys with strict integrity constraints.
+- Implemented SQLAlchemy 2.0 ORM models in `app/repositories/models.py` and repository functions in `app/repositories/` (`users`, `groups`, `expenses`, `settlements`, `ledger`, `idempotency`).
+- Implemented `lock_for_update` on groups, monotonic sequential append on ledger entries, and public ID generation in `app/core/ids.py`.
+- Documented schema architecture, ER diagram, and design decisions in `docs/SCHEMA.md`.
+**Why:**
+- Database constraints serve as the final line of defense for financial correctness (PROJECT_PLAN.md §5, GUARDRAILS.md).
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` → 80 passed, 0 failed (97% total coverage); `make lint` → ok (ruff & mypy clean)
+**Decisions:**
+- Primary keys use `BIGINT` with SQLite `INTEGER` variant for local/test compatibility.
+- `ON DELETE RESTRICT` used across all financial tables to prevent cascading deletion of history.
+- `ledger.append` requires caller to hold group row-level lock.
+**Proposed (not built):** None.
+**Commit:** PENDING `feat(db): schema with shares, settlements, append-only ledger, idempotency`
+**Next:** Phase B3 — Users & Groups API (`prompts/baseline/B3_users_groups_api.md`).
+
 ## 2026-10-30 17:00 — B1 — Pure domain logic: money, splits, balances, settle-up
 **Status:** done
 **What changed:**

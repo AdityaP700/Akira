@@ -24,6 +24,39 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## PENDING — B2 — Database schema, Alembic migrations, repositories
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented the complete relational schema with Alembic migrations, SQLAlchemy 2.0 models, and repository functions. Built tables with DB-level constraints (integer paise limits, non-negative shares, no self-settlements, name/description lengths) and created the append-only ledger and idempotency storage.
+**Files changed:**
+- `app/core/ids.py`: Prefixed public ID generators (`usr_`, `grp_`, `exp_`, `stl_`).
+- `app/repositories/models.py`: SQLAlchemy 2.0 mapped models for all 8 tables.
+- `app/repositories/users.py`: User repository functions (create, get_by_id, get_by_public_id, list_all).
+- `app/repositories/groups.py`: Group repository functions including `lock_for_update` and membership management.
+- `app/repositories/expenses.py`: Expense and expense_shares atomic creation and queries.
+- `app/repositories/settlements.py`: Settlement persistence and group listing.
+- `app/repositories/ledger.py`: Append-only ledger append and list.
+- `app/repositories/idempotency.py`: Idempotency key lookup and upsert.
+- `alembic.ini`, `alembic/env.py`, `alembic/versions/001_initial_schema.py`: Alembic configuration and initial migration.
+- `docs/SCHEMA.md`: Schema reference with Mermaid ER diagram and design trade-off rationale.
+- `tests/unit/test_repositories.py`: Unit tests for all repository methods.
+- `tests/unit/test_db_constraints.py`: Tests executing raw SQL to verify database-level check constraints.
+- `tests/unit/test_migrations.py`: Test verifying Alembic upgrade to head and downgrade to base.
+**Behaviour before → after:**
+- Database schema and persistence layers are in place and tested, enabling the upcoming service and API layers (Phase B3).
+**How to verify:**
+1. `pytest -q --cov=app` → 80 passed (97% total coverage).
+2. `ruff check .`, `ruff format --check .`, and `mypy app/domain app/services` → all pass.
+**Risks / things to look at closely:**
+- `lock_for_update` must be invoked at the start of any transaction that writes expenses or appends to the ledger.
+- Repositories do not commit transactions; session lifecycle remains owned by services.
+**Expected follow-up:**
+- Phase B3: Implement Users and Groups API endpoints, schemas, and services.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
 ## 98f798a — B1 — Pure domain logic: money, splits, balances, settle-up
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented pure business logic without I/O or framework dependencies in `app/domain/`. Includes integer paise parsing and formatting with float prevention, Equal and Exact split strategies with remainder tie-breaking, net balance and pairwise debt computation, and greedy debt simplification.
