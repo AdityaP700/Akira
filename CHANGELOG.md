@@ -19,6 +19,31 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 03:45 — D1-D — Correction: Previous in-memory SQLite testing vs. verified PostgreSQL 16 test suite
+**Status:** done
+**What changed:**
+- Appended formal correction disclosing that runs prior to commit `64854a1` / `3df5bee` executed on in-memory SQLite (`sqlite:///:memory:`) using Python `threading.RLock()` / `threading.Lock()` simulated concurrency, because Docker Desktop was offline during earlier test runs.
+- Catalogued the exact claims that were unproven under earlier SQLite execution:
+  1. *Row-level mutual exclusion (`SELECT ... FOR UPDATE`):* SQLite has no row locks; concurrent serialization was simulated in-process with `threading.RLock()`.
+  2. *Least-privilege PostgreSQL roles:* DB privilege enforcement (`app_rw` blocked from `UPDATE` and `DELETE` on `ledger_entries`, `expense_shares`, `provider_events`) cannot be validated on SQLite, which lacks role and grant mechanisms.
+  3. *Alembic migration execution on PostgreSQL:* The migration runner failed on live PostgreSQL due to revision length truncation (`alembic_version.version_num VARCHAR(32)` vs. 42-char revision name) which SQLite silently permitted.
+  4. *Multi-connection race conditions on idempotency:* Parallel identical requests previously raced on DB checks outside group row locks, creating duplicate records on true concurrent connections.
+  5. *Database engine check constraints and foreign keys:* SQLite's type affinity and default configuration did not strictly enforce PostgreSQL-level checks (`amount_paise > 0`, `amount_paise <= 100000000`, `from_user <> to_user`).
+- Updated `README.md` and `REVIEW_NOTES.md` to reflect that as of commit `3df5bee` and D1 Part 2 verification, 100% of these claims are verified against live PostgreSQL 16 (`akira` and `akira_test`), with 170 passed automated tests (93% coverage), zero Python locks, and live database role permissions actively enforced.
+**Why:**
+- Comply with Addendum D and `GUARDRAILS.md` AG9 (honesty in reporting) and S1-S3: every claim of verification must be backed by true evidence on the target production database.
+**Not done / failed (and why):**
+- None.
+**Tests:** `pytest -q --cov=app` -> 170 passed, 0 failed (93% total coverage); `ruff check .` -> ok; `mypy app/domain app/services` -> ok
+**Decisions:**
+- All API and concurrency tests strictly require `TEST_DATABASE_URL` pointing to PostgreSQL 16. If unreachable, tests fail fast immediately without SQLite fallback.
+**Proposed (not built):**
+- None.
+**Commit:** PENDING `docs(honesty): document sqlite vs postgresql verification correction`
+**Next:** D1 Part 3: Containerized smoke test (`docker compose up --build`), verify healthcheck, and confirm production readiness.
+
+---
+
 ## 2026-10-31 03:25 — D1-B — Migrate test suite and concurrency proofs to real PostgreSQL 16
 **Status:** done
 **What changed:**

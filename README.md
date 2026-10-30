@@ -383,10 +383,10 @@ Every recorded financial movement (`EXPENSE`, `SETTLEMENT`, `REVERSAL`) is appen
 
 ## 11. Testing & Verification
 
-The test suite contains **169 automated tests** spanning pure domain mathematics, database constraints, migrations, security edge hardening, concurrency proofs, and full API integration:
+The test suite contains **170 automated tests** executing exclusively against a real **PostgreSQL 16** database (`akira_test` via `TEST_DATABASE_URL`), with fail-fast safety gates (no SQLite fallback) and zero synthetic Python-level locks:
 
 ```bash
-# Run tests with coverage
+# Run tests with coverage on real PostgreSQL 16
 pytest -q --cov=app
 
 # Run linter and formatting checks
@@ -397,15 +397,18 @@ mypy app/domain app/services
 ```
 
 ### Coverage Highlights
-- **Total Test Suite:** 169 passed, 0 failures, 93% total code coverage.
-- **Pure Domain (`app/domain/`):** 100% test coverage across money parsing, equal/exact/shares splits, balance netting, and settle-up simplification.
+- **Total Test Suite:** 170 passed, 0 failures, 93% total code coverage on PostgreSQL 16.
+- **PostgreSQL Database Backend:** 100% of API, repository, migration, and concurrency tests execute against live PostgreSQL 16. A fail-fast probe in `tests/conftest.py` immediately aborts test runs if PostgreSQL is unreachable or SQLite is detected.
+- **Pure Domain (`app/domain/`):** 100% test coverage across money parsing, equal/exact/shares splits, balance netting, and settle-up simplification (DB-free pure mathematics).
 - **Zero Float Invariant:** Verified via AST and regex inspection (`tests/unit/test_no_float.py`).
 - **Security & BOLA Suite:** 100% coverage on object authorization guards (`app/security/guards.py`), edge hardening, and PII blind index encryption.
 - **Concurrency & Reliability Proofs (`tests/concurrency/test_concurrency.py`):**
-  1. *20 Parallel Expense Creations:* Verified serialized row locks (`FOR UPDATE`), consecutive ledger sequences 1..20, valid HMAC hash chain via `/audit/verify`, and zero balance drift ($\sum \text{net} = 0$).
-  2. *Parallel Settlements Against One Debt:* In-flight debt capacity reservation strictly bounds payouts: under 10 concurrent requests for a ₹50.00 debt, exactly 1 succeeds and 9 receive 422 `OVERPAYMENT`.
-  3. *Concurrent Idempotency Replay:* Parallel identical `POST` requests create exactly 1 database record; all concurrent threads receive the identical 201 response.
+  1. *20 Parallel Expense Creations:* Verified serialized PostgreSQL row locks (`SELECT ... FOR UPDATE`), consecutive ledger sequences 1..20 with zero gaps, valid HMAC hash chain via `/audit/verify`, and zero balance drift ($\sum \text{net} = 0$).
+  2. *Parallel Settlements Against One Debt:* In-flight debt capacity reservation strictly bounds payouts: under 10 concurrent requests across independent database connections for a ₹50.00 debt, exactly 1 succeeds and 9 receive 422 `OVERPAYMENT`.
+  3. *Concurrent Idempotency Replay:* Parallel identical `POST` requests serialized via group row lock create exactly 1 database record; all concurrent threads receive the identical 201 response.
   4. *Database Unavailability Resilience:* Gracefully handles database connection failures; `/health` reports 503 `{"status": "degraded", "db": "down"}` and writes fail safely with 503 `DATABASE_UNAVAILABLE` without unhandled crashes or orphaned rows.
+- **Least-Privilege Database Roles:** `app_rw` runtime role verified against PostgreSQL engine (UPDATE and DELETE are permanently blocked with `permission denied` on `ledger_entries`, `expense_shares`, `provider_events`).
+- **PostgreSQL Check Constraints:** Verified on engine (`chk_expenses_amount_paise`, `chk_shares_owed_paise`, `chk_settlements_no_self_transfer`, foreign keys).
 
 ---
 
