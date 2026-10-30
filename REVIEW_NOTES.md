@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — B5 — Balances, settle-up suggestions, and recorded settlements
+## 54db9a5 — B5 — Balances, settle-up suggestions, and recorded settlements
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented the balances calculation, greedy debt simplification suggestions (the product enhancement), and atomic settlement repayment endpoints. Built derived single-source-of-truth balance queries, overpayment bounds validation against net debt capacity, append-only ledger tracking, and keyset-paginated settlement queries.
 **Files changed:**

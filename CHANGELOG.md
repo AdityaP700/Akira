@@ -38,7 +38,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Overpayment bounds check enforces `amount <= min(-debtor_net, creditor_net)`, allowing both direct settlements and simplified multi-hop transfers while preventing debtor/creditor balance sign flips.
 - Brief's name-keyed balances shape is preserved under `balances` while collision-safe opaque public IDs are provided under `pairs` and `net`.
 **Proposed (not built):** None.
-**Commit:** <pending> `feat(balances): balances, settle-up suggestions and recorded settlements`
+**Commit:** 54db9a5 `feat(balances): balances, settle-up suggestions and recorded settlements`
 **Next:** Phase B6 — Baseline release, seed script, requirement audit (`prompts/baseline/B6_baseline_release.md`).
 
 ---
