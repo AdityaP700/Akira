@@ -1,25 +1,23 @@
-"""Tests verifying Alembic migrations execute up and down without errors."""
-
-from pathlib import Path
+"""Tests verifying Alembic migrations execute up and down without errors on real PostgreSQL."""
 
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect
 
 from alembic import command
+from app.core.config import settings
 
 
-def test_alembic_upgrade_and_downgrade(tmp_path: Path) -> None:
-    db_file = tmp_path / "test_migration.db"
-    db_url = f"sqlite:///{db_file}"
+def test_alembic_upgrade_and_downgrade() -> None:
+    migration_db_url = settings.TEST_DATABASE_URL.replace("/akira_test", "/akira_migration_test")
 
     alembic_cfg = Config("alembic.ini")
-    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+    alembic_cfg.set_main_option("sqlalchemy.url", migration_db_url)
 
     # Run upgrade to head
     command.upgrade(alembic_cfg, "head")
 
     # Verify tables exist
-    engine = create_engine(db_url)
+    engine = create_engine(migration_db_url)
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
     expected_tables = {

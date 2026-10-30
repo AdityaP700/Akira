@@ -16,37 +16,31 @@ Proofs:
    - Transient database errors fail cleanly without partial rows or unhandled crashes
 """
 
-import threading
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.adapters.keys import EnvKeyProvider
 from app.adapters.payment_provider import MockPaymentProvider
 from app.api.deps import get_db, get_key_provider, get_payment_provider
-from app.core.db import Base
 from app.domain.balances import net_balances
 from app.main import app
 from app.repositories.models import Expense, ExpenseShare, Group, LedgerEntry, Settlement
 
 
 @pytest.fixture
-def concurrent_client_and_db() -> tuple[
-    TestClient, Session, EnvKeyProvider, MockPaymentProvider, sessionmaker
+def concurrent_client_and_db(
+    session_factory: sessionmaker,
+) -> Generator[
+    tuple[TestClient, Session, EnvKeyProvider, MockPaymentProvider, sessionmaker],
+    None,
+    None,
 ]:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-
     key_provider = EnvKeyProvider(
         key_id="test_wh_key",
         secret_hex="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",  # noqa: S106
@@ -58,16 +52,12 @@ def concurrent_client_and_db() -> tuple[
     )
     payment_provider = MockPaymentProvider()
 
-    # Re-entrant thread lock for synchronizing SQLite memory connection access
-    sqlite_lock = threading.RLock()
-
     def override_get_db():
-        with sqlite_lock:
-            session = session_factory()
-            try:
-                yield session
-            finally:
-                session.close()
+        session = session_factory()
+        try:
+            yield session
+        finally:
+            session.close()
 
     def override_get_key_provider():
         return key_provider

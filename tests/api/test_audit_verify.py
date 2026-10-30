@@ -1,16 +1,14 @@
 """Tests for tamper-evident HMAC hash-chained ledger and audit verification endpoint."""
 
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.adapters.keys import EnvKeyProvider
 from app.api.deps import get_db, get_key_provider
-from app.core.db import Base
 from app.domain.audit import compute_entry_hash
 from app.main import app
 from app.repositories.models import Expense, LedgerEntry
@@ -19,15 +17,9 @@ ClientDbProvider = tuple[TestClient, Session, EnvKeyProvider]
 
 
 @pytest.fixture
-def client_and_db() -> ClientDbProvider:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-
+def client_and_db(
+    session_factory: sessionmaker,
+) -> Generator[ClientDbProvider, None, None]:
     key_provider = EnvKeyProvider(
         key_id="test_wh_key",
         secret_hex="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",  # noqa: S106
@@ -346,27 +338,24 @@ def test_bola_non_member_cannot_verify_audit(
 def test_concurrent_appends_produce_consecutive_seqs_and_valid_chain(
     client_and_db: ClientDbProvider,
 ) -> None:
-    import threading
 
     client, _, _ = client_and_db
     grp_id, u1_id, t1, _, _, _ = _setup_group(client)
 
     num_threads = 10
-    sqlite_lock = threading.Lock()
 
     def post_expense(idx: int) -> int:
-        with sqlite_lock:
-            r = client.post(
-                f"/groups/{grp_id}/expenses",
-                json={
-                    "paid_by": u1_id,
-                    "amount": f"{idx + 1}.00",
-                    "description": f"Parallel {idx}",
-                    "split_type": "EQUAL",
-                },
-                headers={"Authorization": f"Bearer {t1}"},
-            )
-            return r.status_code
+        r = client.post(
+            f"/groups/{grp_id}/expenses",
+            json={
+                "paid_by": u1_id,
+                "amount": f"{idx + 1}.00",
+                "description": f"Parallel {idx}",
+                "split_type": "EQUAL",
+            },
+            headers={"Authorization": f"Bearer {t1}"},
+        )
+        return r.status_code
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         results = list(executor.map(post_expense, range(num_threads)))

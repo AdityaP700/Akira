@@ -1,31 +1,16 @@
 """Tests verifying that database constraints reject invalid operations at the DB level."""
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 # Import models so Base.metadata is fully populated
 import app.repositories.models  # noqa: F401
-from app.core.db import Base
 
 INSERT_GROUP_SQL = (
     "INSERT INTO groups (id, public_id, name, ledger_head_seq) VALUES (1, 'grp_1', 'Trip', 0)"
 )
-
-
-@pytest.fixture
-def db_session() -> Session:
-    test_engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(test_engine)
-    session_factory = sessionmaker(bind=test_engine)
-    session = session_factory()
-    try:
-        # Enable foreign key support in SQLite
-        session.execute(text("PRAGMA foreign_keys = ON;"))
-        yield session
-    finally:
-        session.close()
 
 
 def test_db_rejects_zero_or_negative_amount_paise(db_session: Session) -> None:

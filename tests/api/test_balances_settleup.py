@@ -2,42 +2,8 @@
 
 from decimal import Decimal
 
-import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.api.deps import get_db
-from app.core.db import Base
-from app.main import app
-
-
-@pytest.fixture
-def client_and_session() -> tuple[TestClient, Session]:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-
-    def override_get_db():
-        session = session_factory()
-        try:
-            yield session
-        finally:
-            session.close()
-
-    app.dependency_overrides[get_db] = override_get_db
-    client = TestClient(app)
-    test_session = session_factory()
-    try:
-        yield client, test_session
-    finally:
-        test_session.close()
-        app.dependency_overrides.clear()
+from sqlalchemy.orm import Session
 
 
 def _setup_group(

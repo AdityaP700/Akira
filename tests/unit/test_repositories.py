@@ -1,23 +1,8 @@
 """Unit tests for repository implementations."""
 
-import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
-from app.core.db import Base
 from app.repositories import expenses, groups, idempotency, ledger, settlements, users
-
-
-@pytest.fixture
-def db_session() -> Session:
-    test_engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(test_engine)
-    session_factory = sessionmaker(bind=test_engine)
-    session = session_factory()
-    try:
-        yield session
-    finally:
-        session.close()
 
 
 def test_user_repository(db_session: Session) -> None:

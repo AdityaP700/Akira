@@ -1,30 +1,24 @@
 """Tests for PII protection (encrypted VPA, blind index) and SHARES split strategy."""
 
+from collections.abc import Generator
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.adapters.keys import EnvKeyProvider
 from app.adapters.payment_provider import MockPaymentProvider
 from app.api.deps import get_db, get_key_provider, get_payment_provider
-from app.core.db import Base
 from app.main import app
 from app.repositories.models import Expense, ExpenseShare, UserPii
 from app.security.pii import PiiDecryptionError, decrypt_vpa
 
 
 @pytest.fixture
-def client_and_db() -> tuple[TestClient, Session, EnvKeyProvider, MockPaymentProvider]:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-
+def client_and_db(
+    session_factory: sessionmaker,
+) -> Generator[tuple[TestClient, Session, EnvKeyProvider, MockPaymentProvider], None, None]:
     key_provider = EnvKeyProvider(
         key_id="test_wh_key",
         secret_hex="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",  # noqa: S106

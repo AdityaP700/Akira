@@ -17,8 +17,10 @@ def client() -> TestClient:
 
 def test_health_ok_path(client: TestClient) -> None:
     """Verify GET /health returns 200 ok when database query succeeds."""
-    # Create SQLite in-memory test database for the ok path
-    test_engine = create_engine("sqlite:///:memory:")
+    # PostgreSQL test database connection for the ok path
+    from app.core.config import settings
+
+    test_engine = create_engine(settings.TEST_DATABASE_URL)
     TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
     def override_get_db() -> Generator[Session, None, None]:
@@ -68,7 +70,9 @@ def test_health_db_down_path(client: TestClient) -> None:
 
 def test_request_id_header_propagated(client: TestClient) -> None:
     """Verify incoming X-Request-ID header is accepted and echoed back."""
-    test_engine = create_engine("sqlite:///:memory:")
+    from app.core.config import settings
+
+    test_engine = create_engine(settings.TEST_DATABASE_URL)
     TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
     def override_get_db() -> Generator[Session, None, None]:
@@ -139,7 +143,7 @@ def test_settings_fail_fast_when_database_url_missing() -> None:
     pytest_mod = sys.modules.pop("pytest", None)
     try:
         with pytest.raises(ValueError, match="DATABASE_URL is missing or empty"):
-            Settings(DATABASE_URL="", APP_ENV="dev")
+            Settings(DATABASE_URL="", LOCAL_DB_PASSWORD="", APP_ENV="dev")
     finally:
         if pytest_marker is not None:
             os.environ["PYTEST_CURRENT_TEST"] = pytest_marker

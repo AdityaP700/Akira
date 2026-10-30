@@ -1,26 +1,19 @@
 """API tests for Users, Groups, and Membership endpoints."""
 
+from collections.abc import Generator
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db
-from app.core.db import Base
 from app.main import app
 
 
 @pytest.fixture
-def client_and_session() -> tuple[TestClient, Session]:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-
+def client_and_session(
+    session_factory: sessionmaker,
+) -> Generator[tuple[TestClient, Session], None, None]:
     def override_get_db():
         session = session_factory()
         try:

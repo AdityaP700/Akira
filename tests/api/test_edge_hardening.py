@@ -15,33 +15,23 @@ Covers:
 import io
 import json
 import logging
+from collections.abc import Generator
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db
 from app.core.config import settings
-from app.core.db import Base
 from app.core.logging import JSONLogFormatter, MaskingFilter
 from app.main import app, create_app
 from app.security.ratelimit import limiter
 
 
 @pytest.fixture
-def edge_client() -> TestClient:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-
+def edge_client(session_factory: sessionmaker) -> Generator[TestClient, None, None]:
     def override_get_db():
         session = session_factory()
         try:

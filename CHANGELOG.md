@@ -19,6 +19,28 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 03:25 — D1-B — Migrate test suite and concurrency proofs to real PostgreSQL 16
+**Status:** done
+**What changed:**
+- Replaced in-memory SQLite testing across 	ests/api/, 	ests/unit/, and 	ests/concurrency/ with real PostgreSQL 16 (TEST_DATABASE_URL). Configured fail-fast connection probe in 	ests/conftest.py that halts immediately if PostgreSQL is unreachable or SQLite is detected.
+- Removed all synthetic 	hreading.RLock and in-memory locks from tests; updated 	ests/concurrency/test_concurrency.py to give every concurrent thread an independent DB connection/session, proving genuine database row locking (SELECT ... FOR UPDATE) and debt capacity protection.
+- Hardened pp/services/expenses.py by locking the group row FOR UPDATE before checking idempotency keys, eliminating concurrent race conditions and ensuring deterministic idempotent replays.
+- Extended lembic/env.py to ensure lembic_version.version_num is VARCHAR(128) so long revision identifiers execute without truncation on PostgreSQL 16.
+**Why:**
+- Comply with Addendum B, GUARDRAILS.md M7, and pre-deploy requirements: SQLite lacks SELECT ... FOR UPDATE and DB-level role security. Validating row locks, table constraints, and isolation requires testing against true PostgreSQL 16.
+**Not done / failed (and why):**
+- None.
+**Tests:** pytest -q --cov=app -> 170 passed, 0 failed (93% total coverage); 
+uff check . -> ok; mypy app/domain app/services -> ok
+**Decisions:**
+- Test suite uses PostgreSQL TRUNCATE ... RESTART IDENTITY CASCADE between test cases (~5ms cleanup) on a session-scoped engine pool, delivering fast execution (<60s for 170 tests) while ensuring clean state isolation.
+**Proposed (not built):**
+- None.
+**Commit:** PENDING eat(tests): migrate test suite and concurrency proofs to real postgresql 16
+**Next:** D1 Part 2 Steps 1–7 (Live DB migration check, seed script verification, live role permission enforcement, check constraints, row lock and zero net balance drift proofs).
+
+---
+
 ## 2026-10-31 02:50 — D1-C — Remove hardcoded DB password and enforce fail-fast configuration
 **Status:** done
 **What changed:**

@@ -3,32 +3,24 @@
 import json
 import secrets
 import time
+from collections.abc import Generator
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.adapters.keys import EnvKeyProvider
 from app.adapters.payment_provider import MockPaymentProvider
 from app.api.deps import get_db, get_key_provider, get_payment_provider
-from app.core.db import Base
 from app.main import app
 from app.security.signatures import build_signature_header
 
 
 @pytest.fixture
-def client_session_provider() -> tuple[TestClient, Session, MockPaymentProvider, EnvKeyProvider]:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-
+def client_session_provider(
+    session_factory: sessionmaker,
+) -> Generator[tuple[TestClient, Session, MockPaymentProvider, EnvKeyProvider], None, None]:
     test_provider = MockPaymentProvider()
     test_key_provider = EnvKeyProvider(
         key_id="test_key_01",

@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     DATABASE_URL: str = ""
     TEST_DATABASE_URL: str = ""
+    LOCAL_DB_PASSWORD: str = ""
     APP_ENV: Literal["dev", "test", "prod"] = "dev"
 
     # Edge hardening & Rate limiting
@@ -40,6 +41,15 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_database_url(self) -> "Settings":
         """Fail fast outside tests if DATABASE_URL is missing or empty."""
+        if not self.DATABASE_URL.strip() and self.LOCAL_DB_PASSWORD.strip():
+            self.DATABASE_URL = (
+                f"postgresql+psycopg://postgres:{self.LOCAL_DB_PASSWORD}@localhost:5432/akira"
+            )
+        if not self.TEST_DATABASE_URL.strip() and self.LOCAL_DB_PASSWORD.strip():
+            self.TEST_DATABASE_URL = (
+                f"postgresql+psycopg://postgres:{self.LOCAL_DB_PASSWORD}@localhost:5432/akira_test"
+            )
+
         is_test = (
             self.APP_ENV == "test" or "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
         )

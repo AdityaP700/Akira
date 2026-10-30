@@ -56,11 +56,20 @@ def create_expense(
     """
     fingerprint = ""
     with session.begin():
+        # 1. Lock group row FOR UPDATE first (Guardrail M7) and verify actor membership
+        if actor is not None:
+            group = require_member_and_lock(session, group_public_id, actor)
+        else:
+            raw_group = groups_repo.lock_for_update_by_public_id(session, group_public_id)
+            if raw_group is None:
+                raise NotFoundError(f"Group '{group_public_id}' not found")
+            group = raw_group
+
+        # 2. Check existing idempotency record under the group lock
         if idempotency_key is not None:
             raw_fingerprint = f"{http_method.upper()}:{http_path}:{canonical_body}"
             fingerprint = hashlib.sha256(raw_fingerprint.encode("utf-8")).hexdigest()
 
-            # Check existing idempotency record
             existing = idempotency_repo.get(
                 session, scope=f"group:{group_public_id}", key=idempotency_key
             )
@@ -71,15 +80,6 @@ def create_expense(
                     )
                 if existing.response_body is not None:
                     return existing.response_body, existing.response_status or 201
-
-        # 1. Lock group row FOR UPDATE and check actor membership
-        if actor is not None:
-            group = require_member_and_lock(session, group_public_id, actor)
-        else:
-            raw_group = groups_repo.lock_for_update_by_public_id(session, group_public_id)
-            if raw_group is None:
-                raise NotFoundError(f"Group '{group_public_id}' not found")
-            group = raw_group
 
         # 2. Validate payer
         payer = users_repo.get_by_public_id(session, payload.paid_by)
