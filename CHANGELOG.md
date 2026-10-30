@@ -19,6 +19,33 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-30 19:55 — A2 — Edge hardening, rate limiting, and structured observability (OWASP API3/API4/API6/API8/API9)
+**Status:** done
+**What changed:**
+- Implemented `app/security/edge.py` (`EdgeHardeningMiddleware` enforcing 64 KB max payload limit returning 413 `PAYLOAD_TOO_LARGE` and rejecting non-JSON write bodies with 415 `UNSUPPORTED_MEDIA_TYPE`; `SecurityHeadersMiddleware` adding `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`, `Content-Security-Policy: frame-ancestors 'none'`, `Referrer-Policy: no-referrer`, and `Strict-Transport-Security` when `APP_ENV=prod`).
+- Configured rate limiting with `slowapi` in `app/security/ratelimit.py` with custom key functions (SHA-256 hashed token for authenticated callers, IP for unauthenticated), configurable limits in `Settings`, and RFC 6585 429 `RATE_LIMITED` responses with `Retry-After: 60`.
+- Implemented regex-based log masking in `app/security/masking.py` (`MaskingFilter`) sanitising Bearer tokens, webhook signatures, Indian phone numbers (`+91987****210`), and VPAs (`al***@domain`).
+- Enhanced structured JSON logging in `app/core/logging.py` capturing route templates (`request.scope.get("route").path`) to prevent cardinality explosion, execution latency in milliseconds, actor public ID, and HTTP status.
+- Added database timeout handler in `app/core/errors.py` translating SQLAlchemy `OperationalError` into 503 `DATABASE_UNAVAILABLE`.
+- Disabled `/docs`, `/redoc`, and `/openapi.json` automatically when `APP_ENV=prod` in `app/main.py`.
+- Added `docs/SECURITY.md` detailing the complete OWASP API Security Top 10 (2023) threat and control matrix mapping every risk to its implementation and automated test suite.
+- Added 15 comprehensive tests in `tests/api/test_edge_hardening.py` verifying 413, 415, 429 with `Retry-After`, security headers, prod mode docs disabling, HSTS, log masking, route template logging, generic 500 error sanitisation, and 503 DB timeout.
+**Why:**
+- Ensure all malicious or malformed traffic is rejected cheaply and visibly at the application edge without leaking stack traces or sensitive user/financial information, in compliance with PROJECT_PLAN.md §3, GUARDRAILS.md (B, E), and prompts/advanced/A2_edge_hardening_and_observability.md.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` → 134 passed, 0 failed (94% total coverage, 100% masking, 89% edge middleware); `make lint` → ok (ruff & mypy clean)
+**Decisions:**
+- SlowAPI in-memory storage used for single-process operation per specification; noted in README that multi-process production deployments would back this with Redis.
+- Rate limiting disabled by default in test suite via `tests/conftest.py` autouse fixture to prevent cross-test IP rate exhaustion, with dedicated edge tests enabling it explicitly.
+- Setting `headers_enabled=False` on `slowapi.Limiter` allows standard Pydantic response models across FastAPI routes, while our custom `rate_limit_exceeded_handler` handles injecting `Retry-After` on 429 responses.
+**Proposed (not built):**
+- Distributed Redis backend for multi-instance deployments (deferred to production deployment phase).
+**Commit:** <pending> `feat(security): input limits, rate limiting, security headers, masked logs`
+**Next:** Phase A3 — Settlement Payment Lifecycle & Webhooks (`prompts/advanced/A3_settlement_lifecycle_and_webhooks.md`).
+
+---
+
 ## 2026-10-30 19:20 — A1 — Authentication and object-level authorisation (OWASP API1/API2/API5)
 **Status:** done
 **What changed:**

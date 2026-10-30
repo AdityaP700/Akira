@@ -218,6 +218,7 @@ After Mohit pays ₹1200 for Dinner (EQUAL) and Rahul pays ₹600 for Cab (EQUAL
 | **Group-Level Row Locking (`FOR UPDATE`)** | Optimistic locking or uncoordinated writes | Guarantees strict serialization of concurrent writes per group, preventing negative balance anomalies and double-counting. |
 | **Scoped Idempotency Keys** | No replay protection | Guarantees safe retries on network timeouts and transient connection errors without creating duplicate expenses. |
 | **Net Debt Capacity Overpayment Check** | Direct pairwise debt check | Enables both direct settlements and simplified multi-hop repayments without flipping debtor/creditor signs. |
+| **In-Memory Rate Limiting (`slowapi`)** | Distributed key-value store (Redis) | In-memory limits keep local dev and testing lightweight and self-contained with zero external daemon dependencies. In a horizontally scaled production deployment with multiple worker processes or containers, the limiter would swap to a shared store via `slowapi.Limiter(storage_uri="redis://...")`. |
 
 ---
 
@@ -247,7 +248,7 @@ This mirrors real-world payments clearing and settlement architectures (such as 
 
 ## 8. Testing & Verification
 
-The test suite contains 103 automated tests spanning pure domain mathematics, database constraints, migrations, and full API integration:
+The test suite contains 134 automated tests spanning pure domain mathematics, database constraints, migrations, security edge hardening, and full API integration:
 
 ```bash
 # Run tests with coverage
@@ -261,25 +262,30 @@ mypy app/domain app/services
 ```
 
 ### Coverage Highlights
-- **Total Test Suite:** 103 passed, 0 failures, 95% total code coverage.
+- **Total Test Suite:** 134 passed, 0 failures, 94% total code coverage.
 - **Pure Domain (`app/domain/`):** 100% test coverage across money parsing, equal/exact splits, balance netting, and settle-up simplification.
 - **Zero Float Invariant:** Verified via AST and regex inspection (`tests/unit/test_no_float.py`).
+- **Security & BOLA Suite:** 100% coverage on object authorization guards (`app/security/guards.py`) and edge hardening.
 
 ---
 
 ## 9. Reliability & Security Notes
 
+- **Authentication & BOLA Prevention (Phase A1):** Bearer tokens (`est_...`) validated via SHA-256 hashes in constant time (`hmac.compare_digest`). Non-members receive 404 `NOT_FOUND` to prevent group ID enumeration (OWASP API1).
+- **Edge Hardening & Abuse Protection (Phase A2):** 64 KB maximum payload limit (413), JSON Content-Type validation (415), slowapi rate limiting per token and per IP (429 with `Retry-After`), and defensive security headers (`nosniff`, `no-store`, `frame-ancestors 'none'`, `no-referrer`, HSTS in prod).
+- **Masked JSON Observability (Phase A2):** Structured JSON logs record parameterized route templates (`/groups/{group_id}/expenses`), latency ms, and actor public IDs. `MaskingFilter` strips tokens, Authorization headers, signatures, VPAs, and phone numbers.
 - **Atomic Transactions:** Each write use case is wrapped in a single explicit transaction; partial writes are impossible.
 - **Replay Protection:** Replaying an identical request with the same `Idempotency-Key` returns the stored original 201 response. Reusing the key with a different payload returns `422 IDEMPOTENCY_KEY_REUSED`.
 - **Database Health Probe:** `/health` validates active database query execution; returns `503 DATABASE_UNAVAILABLE` if the database is unreachable.
 
 ---
 
-## 10. With More Time (Planned for Advanced Phases)
+## 10. Advanced Phases Roadmap
 
-- **Phase A1 (Planned):** Per-user authentication & object-level authorization (group membership required for all group routes).
-- **Phase A2 (Planned):** IP and token-based rate limiting & abuse protection (slowapi).
-- **Phase A3 (Planned):** Settlement payment lifecycle with mock payment provider and HMAC-SHA256 signed webhooks.
-- **Phase A4 (Planned):** Tamper-evident HMAC hash-chained ledger with `/audit/verify` integrity endpoint.
-- **Phase A5 (Planned):** Encrypted user UPI VPA with blind indexing (AES-256-GCM + HMAC-SHA256).
+- [x] **Phase A1:** Per-user authentication & object-level authorization (group membership required for all group routes).
+- [x] **Phase A2:** Edge hardening, IP & token-based rate limiting (slowapi), security headers, masked structured logs, and OWASP API Top 10 matrix.
+- [ ] **Phase A3:** Settlement payment lifecycle with mock payment provider and HMAC-SHA256 signed webhooks.
+- [ ] **Phase A4:** Tamper-evident HMAC hash-chained ledger with `/audit/verify` integrity endpoint.
+- [ ] **Phase A5:** Encrypted user UPI VPA with blind indexing (AES-256-GCM + HMAC-SHA256) and dual database roles.
+- [ ] **Phase A6:** Formal proofs, threat model finalization, and end-to-end audit.
 - **Phase A6 (Planned):** Production observability with structured JSON logging and automated PII masking.

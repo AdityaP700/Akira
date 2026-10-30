@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def get_actor(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     session: Annotated[Session, Depends(get_db)],
 ) -> User:
@@ -35,6 +36,9 @@ def get_actor(
     user = authenticate_token(session, token)
     if user is None:
         raise UnauthenticatedError(message="Invalid or revoked authentication token")
+
+    request.state.actor_public_id = user.public_id
+    request.state.actor = user
 
     # Detach user so its loaded attributes don't expire, and end the read transaction
     # so the service layer can begin its own use-case transaction with `with session.begin():`.

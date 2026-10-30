@@ -9,8 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_actor, get_db
 from app.api.schemas.settlements import SettlementIn, SettlementListOut, SettlementOut
+from app.core.config import settings
 from app.core.errors import ValidationError
 from app.repositories.models import User
+from app.security.ratelimit import limiter
 from app.services import settlements as settlements_service
 
 router = APIRouter(tags=["settlements"])
@@ -33,6 +35,7 @@ def _validate_idempotency_key(key: str | None) -> None:
         "Requires caller to be a member."
     ),
 )
+@limiter.limit(settings.RATE_LIMIT_SETTLEMENTS)
 def create_settlement(
     group_id: str,
     payload: SettlementIn,

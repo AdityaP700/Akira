@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_actor, get_db
@@ -13,7 +13,9 @@ from app.api.schemas.users import (
     UserOut,
     UserRegistrationOut,
 )
+from app.core.config import settings
 from app.repositories.models import User
+from app.security.ratelimit import limiter
 from app.services import users as users_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -26,7 +28,9 @@ router = APIRouter(prefix="/users", tags=["users"])
     summary="Create a new user",
     description="Register a new user. Returns opaque public ID and initial API bearer token.",
 )
+@limiter.limit(settings.RATE_LIMIT_USER_REGISTRATION)
 def create_user(
+    request: Request,
     payload: UserIn,
     db: Annotated[Session, Depends(get_db)],
 ) -> UserRegistrationOut:

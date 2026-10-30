@@ -24,6 +24,47 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — A2 — Edge hardening, rate limiting, and structured observability (OWASP API3/API4/API6/API8/API9)
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented comprehensive edge security hardening, rate limiting, and structured observability. Added middleware enforcing 64 KB payload caps (413) and JSON content-type restrictions (415), slowapi-powered rate limiting (429 with RFC 6585 Retry-After), security response headers, automatic API doc disablement in prod, regex-based log sanitisation for credentials and PII, route-templated JSON logging, and database timeout handlers (503).
+**Files changed:**
+- `app/security/edge.py`: `EdgeHardeningMiddleware` (64 KB body size limit, non-JSON body rejection) and `SecurityHeadersMiddleware` (nosniff, no-store, CSP frame-ancestors, no-referrer, HSTS).
+- `app/security/ratelimit.py`: SlowAPI limiter instance, token-hash and IP key functions, and RFC 6585 429 error handler returning `Retry-After: 60`.
+- `app/security/masking.py`: `MaskingFilter` and helper regexes redacting tokens, Bearer headers, webhook signatures, VPAs, and phone numbers from logs.
+- `app/core/logging.py`: Configured log masking filter, added parameterized route templates to access logs, and recorded request latency ms.
+- `app/core/errors.py`: Added `PayloadTooLargeError`, `UnsupportedMediaTypeError`, `RateLimitExceededError`, and `db_error_handler` mapping `OperationalError` to 503 `DATABASE_UNAVAILABLE`.
+- `app/core/config.py`: Added settings for rate limit thresholds and max request body bytes.
+- `app/main.py`: Wired middleware stack, SlowAPI state, and disabled `/docs`, `/redoc`, and `/openapi.json` when `APP_ENV=prod`.
+- `app/api/deps.py`: Attached `actor_public_id` to request state during authentication.
+- `app/api/routers/users.py`: Decorated `POST /users` with IP rate limiter.
+- `app/api/routers/settlements.py`: Decorated `POST /groups/{id}/settlements` with settlement rate limiter.
+- `docs/SECURITY.md`: Comprehensive OWASP API Security Top 10 (2023) threat and control matrix mapping every vulnerability to implementation controls and automated test names.
+- `README.md`: Documented edge hardening, rate limiting architecture, and security properties.
+- `tests/conftest.py`: Autouse fixture disabling rate limiting during standard functional tests.
+- `tests/api/test_edge_hardening.py`: 15 comprehensive tests covering 413, 415, 429 with Retry-After, security headers, HSTS, disabled docs, masked logs, route templates, generic 500s, and 503 DB timeouts.
+**Behaviour before → after:**
+- Payloads exceeding 64 KB receive 413 `PAYLOAD_TOO_LARGE`.
+- POST/PUT/PATCH requests with non-JSON content types receive 415 `UNSUPPORTED_MEDIA_TYPE`.
+- Excess requests receive 429 `RATE_LIMITED` with `Retry-After: 60`.
+- Responses contain security headers (`nosniff`, `no-store`, `frame-ancestors 'none'`, `no-referrer`, HSTS in prod).
+- API docs are hidden in `APP_ENV=prod`.
+- Application logs never contain tokens, signatures, VPAs, or phone numbers.
+**How to verify:**
+1. `pytest -q --cov=app` → 134 passed (94% coverage).
+2. `ruff check .` && `ruff format --check .` && `mypy app/domain app/services` → all clean.
+**Risks / things to look at closely:**
+- Test suite rate limiter disabling prevents flaky test failures; isolated test toggles limiter back on.
+- In-memory rate limiting is per-process; production multi-process clusters require Redis backing.
+**Expected follow-up:**
+- Phase A3: Settlement Payment Lifecycle & Webhooks.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 981900d — A1 — Authentication and object-level authorisation (OWASP API1/API2/API5)
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented bank-grade authentication with Bearer tokens and strict object-level authorization (BOLA prevention). Tokens use 32-byte URL-safe randomness prefixed with `est_` and are stored as SHA-256 hashes in `users.token_hash`. All group endpoints require caller membership, returning an identical 404 `NOT_FOUND` on non-membership to eliminate group enumeration vulnerabilities.

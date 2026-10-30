@@ -4,9 +4,12 @@ from typing import Any
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from sqlalchemy.exc import OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.logging import get_request_id
+from app.security.ratelimit import rate_limit_exceeded_handler
 
 logger = logging.getLogger("app.core.errors")
 
@@ -67,6 +70,25 @@ class OverpaymentError(AppError):
         super().__init__(code="OVERPAYMENT", message=message, status_code=422)
 
 
+class PayloadTooLargeError(AppError):
+    def __init__(
+        self, message: str = "Request payload exceeds maximum allowed size of 64 KB"
+    ) -> None:
+        super().__init__(code="PAYLOAD_TOO_LARGE", message=message, status_code=413)
+
+
+class UnsupportedMediaTypeError(AppError):
+    def __init__(
+        self, message: str = "Unsupported Media Type: Content-Type must be 'application/json'"
+    ) -> None:
+        super().__init__(code="UNSUPPORTED_MEDIA_TYPE", message=message, status_code=415)
+
+
+class RateLimitExceededError(AppError):
+    def __init__(self, message: str = "Too many requests. Please retry later.") -> None:
+        super().__init__(code="RATE_LIMITED", message=message, status_code=429)
+
+
 def _resolve_request_id(request: Request) -> str:
     return getattr(request.state, "request_id", None) or get_request_id() or "unknown"
 
@@ -125,11 +147,37 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         code = "FORBIDDEN"
     elif exc.status_code == status.HTTP_401_UNAUTHORIZED:
         code = "UNAUTHORIZED"
+    elif exc.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE:
+        code = "PAYLOAD_TOO_LARGE"
+    elif exc.status_code == status.HTTP_415_UNSUPPORTED_MEDIA_TYPE:
+        code = "UNSUPPORTED_MEDIA_TYPE"
+    elif exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+        code = "RATE_LIMITED"
 
-    return _error_response(
+    headers = {"X-Request-ID": request_id}
+    if exc.headers:
+        headers.update(exc.headers)
+
+    return JSONResponse(
         status_code=exc.status_code,
-        code=code,
-        message=str(exc.detail),
+        content={
+            "error": {
+                "code": code,
+                "message": str(exc.detail),
+                "request_id": request_id,
+            }
+        },
+        headers=headers,
+    )
+
+
+async def db_error_handler(request: Request, exc: OperationalError) -> JSONResponse:
+    request_id = _resolve_request_id(request)
+    logger.error("Database operational error: %s (request_id=%s)", exc, request_id)
+    return _error_response(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        code="DATABASE_UNAVAILABLE",
+        message="Database connection failed or timed out",
         request_id=request_id,
     )
 
@@ -150,4 +198,6 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(OperationalError, db_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_exception_handler)

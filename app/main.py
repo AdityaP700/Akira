@@ -1,16 +1,19 @@
 from fastapi import FastAPI
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.routers import balances, expenses, groups, health, settlements, users
 from app.core.config import settings
 from app.core.errors import register_error_handlers
-from app.core.logging import RequestIDMiddleware, setup_logging
+from app.core.logging import RequestLoggingMiddleware, setup_logging
+from app.security.edge import EdgeHardeningMiddleware, SecurityHeadersMiddleware
+from app.security.ratelimit import limiter
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application instance."""
     setup_logging()
 
-    # Disable interactive documentation in production (GUARDRAILS P9)
+    # Disable interactive documentation in production (GUARDRAILS P9 / OWASP API9)
     docs_url = "/docs" if settings.APP_ENV != "prod" else None
     redoc_url = "/redoc" if settings.APP_ENV != "prod" else None
     openapi_url = "/openapi.json" if settings.APP_ENV != "prod" else None
@@ -24,8 +27,18 @@ def create_app() -> FastAPI:
         openapi_url=openapi_url,
     )
 
-    # Middleware
-    app.add_middleware(RequestIDMiddleware)
+    # Attach slowapi rate limiter state
+    app.state.limiter = limiter
+
+    # Middleware stack:
+    # 1. RequestLoggingMiddleware (outermost: logs request_id, latency ms, status, actor)
+    # 2. SecurityHeadersMiddleware (injects defensive security headers on all responses)
+    # 3. EdgeHardeningMiddleware (64 KB body size limit -> 413, JSON content type -> 415)
+    # 4. SlowAPIMiddleware (rate limiting enforcement -> 429)
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(SlowAPIMiddleware)
+    app.add_middleware(EdgeHardeningMiddleware)
+    app.add_middleware(RequestLoggingMiddleware)
 
     # Global error handlers
     register_error_handlers(app)
