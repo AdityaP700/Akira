@@ -1,3 +1,5 @@
+import os
+import sys
 from collections.abc import Generator
 from typing import Any
 
@@ -22,16 +24,27 @@ def get_connect_args(url: str) -> dict[str, Any]:
     return {}
 
 
-def create_app_engine(url: str = settings.DATABASE_URL) -> Engine:
-    connect_args = get_connect_args(url)
+def create_app_engine(url: str | None = None) -> Engine:
+    target_url = url if url is not None else settings.DATABASE_URL
+    if not target_url or not target_url.strip():
+        if (
+            settings.APP_ENV == "test"
+            or "pytest" in sys.modules
+            or "PYTEST_CURRENT_TEST" in os.environ
+        ):
+            target_url = "sqlite://"
+        else:
+            raise ValueError("DATABASE_URL is required to initialize database engine.")
+
+    connect_args = get_connect_args(target_url)
     engine_kwargs: dict[str, Any] = {
         "pool_pre_ping": True,
         "connect_args": connect_args,
     }
-    if "sqlite" not in url:
+    if "sqlite" not in target_url:
         engine_kwargs["pool_timeout"] = 5
 
-    return create_engine(url, **engine_kwargs)
+    return create_engine(target_url, **engine_kwargs)
 
 
 engine = create_app_engine()

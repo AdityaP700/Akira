@@ -4,7 +4,7 @@ services:
     container_name: akira-db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:?LOCAL_DB_PASSWORD is required in .env}
       POSTGRES_DB: akira
     ports:
       - "5432:5432"
@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile
     container_name: akira-api
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgrespassword@db:5432/akira
+      DATABASE_URL: postgresql+psycopg://postgres:${LOCAL_DB_PASSWORD}@db:5432/akira
       APP_ENV: dev
     ports:
       - "8000:8000"

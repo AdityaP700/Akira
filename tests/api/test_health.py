@@ -128,6 +128,25 @@ def test_settings_repr_masks_database_url() -> None:
     assert str(custom_settings) == repr_str
 
 
+def test_settings_fail_fast_when_database_url_missing() -> None:
+    """Verify Settings raises ValueError when DATABASE_URL is missing outside test mode."""
+    import os
+    import sys
+
+    from app.core.config import Settings
+
+    pytest_marker = os.environ.pop("PYTEST_CURRENT_TEST", None)
+    pytest_mod = sys.modules.pop("pytest", None)
+    try:
+        with pytest.raises(ValueError, match="DATABASE_URL is missing or empty"):
+            Settings(DATABASE_URL="", APP_ENV="dev")
+    finally:
+        if pytest_marker is not None:
+            os.environ["PYTEST_CURRENT_TEST"] = pytest_marker
+        if pytest_mod is not None:
+            sys.modules["pytest"] = pytest_mod
+
+
 def test_ids_generate_id() -> None:
     """Verify opaque ID generation with expected prefix and randomness."""
     from app.core.ids import generate_id

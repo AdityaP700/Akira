@@ -24,6 +24,36 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## pending — D1-C — Remove hardcoded DB password and enforce fail-fast configuration
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Removed hardcoded PostgreSQL credentials from configuration and docker-compose files. Enforced fail-fast validation in Settings when DATABASE_URL is omitted outside testing environments.
+**Files changed:**
+- pp/core/config.py: Removed default database URL containing hardcoded credentials; added validator to raise ValueError if missing.
+- pp/core/db.py: Enforced fail-fast engine creation if database URL is empty.
+- docker-compose.yml: Replaced hardcoded password with required LOCAL_DB_PASSWORD environment variable.
+- .env.example: Added LOCAL_DB_PASSWORD and TEST_DATABASE_URL documentation.
+- 	ests/api/test_health.py: Added test verifying fail-fast behavior on missing database URL.
+**Behaviour before → after:**
+- Before: Application defaulted to postgres:postgres if DATABASE_URL was unset.
+- After: Application immediately aborts startup with a descriptive error outside tests if DATABASE_URL is omitted.
+**How to verify:**
+1. Run linter and typecheck:
+   
+uff check . && ruff format --check . && .\.venv\Scripts\mypy app/domain app/services
+2. Run health and config tests:
+   .\.venv\Scripts\pytest -q tests/api/test_health.py
+**Risks / things to look at closely:**
+- Test environment detection must allow test suite execution without requiring production database credentials while strictly enforcing configuration in production.
+**Expected follow-up:**
+- Step B: Provision PostgreSQL container and configure tests against TEST_DATABASE_URL.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## b8c223a — A6 — Reliability proofs, STRIDE threat model, demo walkthrough, and final submission
 **Author:** Antigravity · **Sub-agents used:** `bb26ccca-9685-415c-824d-e04cb060ecff: research → Requirement & Claim Traceability Auditor`
 **Summary:** Delivered formal concurrency and reliability proof tests, comprehensive STRIDE threat modeling in `docs/SECURITY.md`, a scripted 4-minute interactive demonstration in `DEMO.md`, an expanded 29-request Postman collection, complete API and schema references through schema revision 005, and exhaustive requirement-to-evidence and claim-to-test traceability matrices. All 169 automated tests pass with 93% total code coverage and 100% strict type and lint compliance.

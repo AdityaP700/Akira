@@ -1,10 +1,14 @@
+import os
+import sys
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/akira"
+    DATABASE_URL: str = ""
+    TEST_DATABASE_URL: str = ""
     APP_ENV: Literal["dev", "test", "prod"] = "dev"
 
     # Edge hardening & Rate limiting
@@ -32,6 +36,19 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_database_url(self) -> "Settings":
+        """Fail fast outside tests if DATABASE_URL is missing or empty."""
+        is_test = (
+            self.APP_ENV == "test" or "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
+        )
+        if not is_test and not self.DATABASE_URL.strip():
+            raise ValueError(
+                "DATABASE_URL is missing or empty. A valid PostgreSQL connection string "
+                "must be provided via environment variable or .env file."
+            )
+        return self
 
     def __repr__(self) -> str:
         """Never log secrets or full connection strings in logs or debug representations."""
