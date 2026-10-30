@@ -18,7 +18,7 @@ from app.core.errors import (
 )
 from app.core.pagination import decode_cursor, encode_cursor
 from app.domain.money import MoneyError, format_paise, parse_rupees
-from app.domain.splits import EqualSplit, ExactSplit, SplitError
+from app.domain.splits import EqualSplit, ExactSplit, SharesSplit, SplitError
 from app.repositories import expenses as expenses_repo
 from app.repositories import groups as groups_repo
 from app.repositories import idempotency as idempotency_repo
@@ -127,6 +127,26 @@ def create_expense(
             exact_strategy = ExactSplit()
             try:
                 shares_dict = exact_strategy.compute(amount_paise, list(spec.keys()), spec=spec)
+            except SplitError as exc:
+                raise ValidationError(str(exc)) from exc
+        elif payload.split_type == "SHARES":
+            if not payload.shares:
+                raise ValidationError("SHARES split requires 'shares' list")
+
+            shares_spec: dict[int, int] = {}
+            for item in payload.shares:
+                part_user = users_repo.get_by_public_id(session, item.user_id)
+                if part_user is None or part_user.id not in member_user_ids:
+                    raise ParticipantNotMemberError(
+                        f"Participant '{item.user_id}' is not a member of group '{group_public_id}'"
+                    )
+                shares_spec[part_user.id] = item.weight
+
+            shares_strategy = SharesSplit()
+            try:
+                shares_dict = shares_strategy.compute(
+                    amount_paise, list(shares_spec.keys()), spec=shares_spec
+                )
             except SplitError as exc:
                 raise ValidationError(str(exc)) from exc
         else:

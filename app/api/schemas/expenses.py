@@ -31,15 +31,36 @@ class ExactSplitIn(BaseModel):
         return str(v)
 
 
+class ShareWeightIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str = Field(min_length=1, max_length=64, description="Public user ID")
+    weight: int = Field(gt=0, description="Strictly positive integer weight")
+
+    @field_validator("user_id", mode="before")
+    @classmethod
+    def strip_user_id(cls, v: str) -> str:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                raise ValueError("user_id cannot be blank")
+        return v
+
+
 class ExpenseIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     paid_by: str = Field(min_length=1, max_length=64, description="Public ID of paying user")
     amount: str = Field(description="Total expense amount in rupees (e.g. '1200.00')")
     description: str = Field(min_length=1, max_length=200, description="Expense description")
-    split_type: Literal["EQUAL", "EXACT"] = Field(description="Split type (EQUAL or EXACT)")
+    split_type: Literal["EQUAL", "EXACT", "SHARES"] = Field(
+        description="Split type (EQUAL, EXACT, or SHARES)"
+    )
     splits: list[ExactSplitIn] | None = Field(
         default=None, description="Exact shares (required for EXACT split)"
+    )
+    shares: list[ShareWeightIn] | None = Field(
+        default=None, description="Weighted shares (required for SHARES split)"
     )
     group_id: str | None = Field(
         default=None, max_length=64, description="Group ID for POST /expenses alias"

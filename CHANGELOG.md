@@ -19,6 +19,34 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 01:45 — A5 — PII protection (Encrypted VPA with AES-256-GCM + Blind Index), SHARES split strategy, and least-privilege DB roles
+**Status:** done
+**What changed:**
+- Added Alembic migration `005_user_pii.py` introducing `user_pii` table with AES-256-GCM ciphertext, 96-bit nonce, key_id, and indexed unique HMAC-SHA256 blind index.
+- Implemented `app/security/pii.py` providing AES-256-GCM AEAD encryption/decryption with user public ID as associated authenticated data (preventing ciphertext transplant) and normalized blind indexing (`strip().lower()`).
+- Extended `KeyProvider` and `EnvKeyProvider` in `app/adapters/keys.py` with PII encryption and blind index key management and rotation support, documenting KMS envelope encryption as production architecture.
+- Added API endpoints `PUT /users/me/vpa` and `GET /users/me` returning masked VPAs (`al***@domain`), raising 409 `VPA_ALREADY_IN_USE` on duplicate blind index collision.
+- Updated settlement UPI intent generation to decrypt payee VPA solely inside provider adapter invocation without exposing in logs or response payloads.
+- Implemented `SharesSplit` strategy in `app/domain/splits.py` registered in `_REGISTRY`, calculating `floor(amount * weight / sum_weight)` with deterministic 1-paise remainder distribution in ascending internal user ID order.
+- Created `scripts/init_db_roles.sql` establishing `app_owner` for DDL migrations and `app_rw` runtime role with strictly `SELECT, INSERT` (no `UPDATE`/`DELETE`) on append-only tables (`ledger_entries`, `expense_shares`, `provider_events`).
+- Added comprehensive unit and API tests in `tests/unit/test_splits_shares.py`, `tests/unit/test_migrations.py`, and `tests/api/test_pii_and_shares.py` (14 new tests, 165 total).
+- Updated `docs/SECURITY.md` Section 6 and `README.md` Section 10 detailing PII encryption, blind indexing, and least-privilege database roles.
+**Why:**
+- Comply with GUARDRAILS.md (B5, D3, D4, E6, E8) and `prompts/advanced/A5_pii_protection_and_db_roles.md`, ensuring full database dumps reveal no usable personal payment credentials or VPA identifiers, preventing history rewriting at the DB privilege layer, and expanding expense splitting flexibility.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` -> 165 passed, 0 failed (93% total coverage); `make lint` -> ok (ruff & mypy clean)
+**Decisions:**
+- Amounts remain stored as plaintext integer paise to preserve SQL aggregate queries (`SUM`), check constraints, and balance reconciliation; integrity is guaranteed by HMAC hash chains and database grants.
+- User public ID is bound as AAD in AES-256-GCM to prevent database-level transplant of ciphertexts across user rows.
+- Blind index normalizes by trimming and lowercasing to enforce case-insensitive uniqueness.
+**Proposed (not built):**
+- Per-user Data Encryption Keys (DEKs) wrapped by AWS KMS/GCP Cloud KMS for crypto-shredding on GDPR erasure requests (documented in `docs/SECURITY.md`).
+**Commit:** <hash> `feat(privacy): encrypted VPA with blind index, shares split, least-privilege DB role`
+**Next:** Phase A6 — Formal proofs, threat model finalization, and end-to-end audit (`prompts/advanced/A6_formal_proofs_and_threat_model.md`).
+
+---
+
 ## 2026-10-31 00:45 — A4 — Tamper-evident HMAC hash-chained ledger and verification
 **Status:** done
 **What changed:**

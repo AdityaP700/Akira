@@ -7,9 +7,16 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy.orm import Session
 
+from app.adapters.keys import KeyProvider
 from app.adapters.notifier import Notifier
 from app.adapters.payment_provider import PaymentProvider
-from app.api.deps import get_actor, get_db, get_notifier, get_payment_provider
+from app.api.deps import (
+    get_actor,
+    get_db,
+    get_key_provider,
+    get_notifier,
+    get_payment_provider,
+)
 from app.api.schemas.settlements import SettlementIn, SettlementListOut, SettlementOut
 from app.core.config import settings
 from app.core.errors import ValidationError
@@ -46,6 +53,7 @@ def create_settlement(
     actor: Annotated[User, Depends(get_actor)],
     payment_provider: Annotated[PaymentProvider, Depends(get_payment_provider)],
     notifier: Annotated[Notifier, Depends(get_notifier)],
+    key_provider: Annotated[KeyProvider, Depends(get_key_provider)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Any:
     _validate_idempotency_key(idempotency_key)
@@ -61,6 +69,7 @@ def create_settlement(
         canonical_body=canonical_body,
         payment_provider=payment_provider,
         notifier=notifier,
+        key_provider=key_provider,
     )
     return data
 

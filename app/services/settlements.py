@@ -58,6 +58,7 @@ def record_settlement(
     canonical_body: str = "",
     payment_provider: PaymentProvider | None = None,
     notifier: Notifier | None = None,
+    key_provider: KeyProvider | None = None,
 ) -> tuple[dict[str, Any], int]:
     """Record a settlement payment following two-phase foreign call pattern and state machine.
 
@@ -95,6 +96,7 @@ def record_settlement(
     method = payload.method.upper()
     amount_paise = 0
     settlement_id = 0
+    creditor_id = 0
     debtor_public_id = ""
     creditor_public_id = ""
     debtor_name = ""
@@ -195,6 +197,7 @@ def record_settlement(
 
         settlement_id = settlement.id
         settlement_public_id = settlement.public_id
+        creditor_id = creditor.id
         debtor_public_id = debtor.public_id
         debtor_name = debtor.name
         creditor_public_id = creditor.public_id
@@ -246,10 +249,19 @@ def record_settlement(
     # Phase 2: Call provider outside DB transaction if method == UPI
     upi_link: str | None = None
     if method == METHOD_UPI:
+        payee_vpa = payload.payee_vpa
+        if not payee_vpa and key_provider is not None:
+            from app.services.users import get_decrypted_user_vpa
+
+            with session.begin():
+                payee_vpa = get_decrypted_user_vpa(
+                    session, creditor_id, creditor_public_id, key_provider
+                )
+
         intent = payment_provider.create_collect(
             reference=reference,
             amount_paise=amount_paise,
-            payee_vpa=payload.payee_vpa,
+            payee_vpa=payee_vpa,
         )
         upi_link = intent.upi_link
 

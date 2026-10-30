@@ -24,6 +24,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     func,
@@ -63,6 +64,33 @@ class User(Base):
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
+        server_default=func.now(),
+    )
+
+
+class UserPii(Base):
+    __tablename__ = "user_pii"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    vpa_ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    vpa_nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    vpa_key_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    vpa_blind_index: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         server_default=func.now(),
     )
 

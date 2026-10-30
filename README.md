@@ -346,9 +346,44 @@ Every recorded financial movement (`EXPENSE`, `SETTLEMENT`, `REVERSAL`) is appen
 
 ---
 
-## 10. Testing & Verification
+## 10. PII Protection (AES-256-GCM + Blind Indexing), SHARES Split, & Least-Privilege DB Roles
 
-The test suite contains 151 automated tests spanning pure domain mathematics, database constraints, migrations, security edge hardening, and full API integration:
+### Encrypted User VPA with AES-256-GCM & Blind Indexing
+- **Application-Level AEAD Encryption:** Sensitive user payment addresses (VPAs) are stored encrypted at rest in `user_pii` using AES-256-GCM. Each encryption generates a fresh, cryptographically random 96-bit nonce (`os.urandom(12)`) and binds the user's public ID (`usr_...`) as Associated Authenticated Data (AAD).
+- **Exact-Match Blind Indexing:** Non-deterministic encryption prevents database indexing and unique constraints. Akira computes an HMAC-SHA256 blind index over normalised VPAs (`vpa.strip().lower()`), enabling $O(1)$ lookups and 409 `VPA_ALREADY_IN_USE` uniqueness checks without decrypting table rows.
+- **Data Minimisation & Masking:** User VPAs are masked (`al***@okhdfcbank`) in all API responses and access logs. Plaintext VPAs are only decrypted inside the payment provider adapter call when constructing UPI deep links.
+- **Endpoints:**
+  - `PUT /users/me/vpa`: Set or update user VPA (returns masked representation).
+  - `GET /users/me`: Returns user profile including `vpa_masked`.
+
+### SHARES Split Strategy
+- Weighted proportional splitting:
+  $$\text{share} = \left\lfloor \frac{\text{amount} \times \text{weight}}{\sum \text{weight}} \right\rfloor$$
+- Remainder paise from integer division are deterministically distributed 1 paise each to participants in ascending order of internal user ID.
+- Example payload:
+  ```json
+  {
+    "paid_by": "usr_...",
+    "amount": "100.00",
+    "description": "Team Dinner",
+    "split_type": "SHARES",
+    "shares": [
+      {"user_id": "usr_alice", "weight": 2},
+      {"user_id": "usr_bob", "weight": 1},
+      {"user_id": "usr_charlie", "weight": 1}
+    ]
+  }
+  ```
+
+### Least-Privilege Database Roles
+- `app_owner`: Owns tables and runs Alembic migrations (`scripts/init_db_roles.sql`).
+- `app_rw`: Runtime application role. Granted `SELECT, INSERT` only on append-only tables (`ledger_entries`, `expense_shares`, `provider_events`), `UPDATE` on `notifications.read_at` only, and `SELECT, INSERT, UPDATE` on general tables. `UPDATE` and `DELETE` on append-only records are permanently blocked at the database engine level.
+
+---
+
+## 11. Testing & Verification
+
+The test suite contains 165 automated tests spanning pure domain mathematics, database constraints, migrations, security edge hardening, and full API integration:
 
 ```bash
 # Run tests with coverage
@@ -362,14 +397,14 @@ mypy app/domain app/services
 ```
 
 ### Coverage Highlights
-- **Total Test Suite:** 151 passed, 0 failures, 93% total code coverage.
+- **Total Test Suite:** 165 passed, 0 failures, 93% total code coverage.
 - **Pure Domain (`app/domain/`):** 100% test coverage across money parsing, equal/exact splits, balance netting, and settle-up simplification.
 - **Zero Float Invariant:** Verified via AST and regex inspection (`tests/unit/test_no_float.py`).
 - **Security & BOLA Suite:** 100% coverage on object authorization guards (`app/security/guards.py`) and edge hardening.
 
 ---
 
-## 11. Reliability & Security Notes
+## 12. Reliability & Security Notes
 
 - **Authentication & BOLA Prevention (Phase A1):** Bearer tokens (`est_...`) validated via SHA-256 hashes in constant time (`hmac.compare_digest`). Non-members receive 404 `NOT_FOUND` to prevent group ID enumeration (OWASP API1).
 - **Edge Hardening & Abuse Protection (Phase A2):** 64 KB maximum payload limit (413), JSON Content-Type validation (415), slowapi rate limiting per token and per IP (429 with `Retry-After`), and defensive security headers (`nosniff`, `no-store`, `frame-ancestors 'none'`, `no-referrer`, HSTS in prod).
@@ -380,12 +415,11 @@ mypy app/domain app/services
 
 ---
 
-## 12. Advanced Phases Roadmap
+## 13. Advanced Phases Roadmap
 
 - [x] **Phase A1:** Per-user authentication & object-level authorization (group membership required for all group routes).
 - [x] **Phase A2:** Edge hardening, IP & token-based rate limiting (slowapi), security headers, masked structured logs, and OWASP API Top 10 matrix.
 - [x] **Phase A3:** Settlement payment lifecycle with mock payment provider and HMAC-SHA256 signed webhooks.
 - [x] **Phase A4:** Tamper-evident HMAC hash-chained ledger with `/audit/verify` integrity endpoint.
-- [ ] **Phase A5:** Encrypted user UPI VPA with blind indexing (AES-256-GCM + HMAC-SHA256) and dual database roles.
+- [x] **Phase A5:** Encrypted user UPI VPA with blind indexing (AES-256-GCM + HMAC-SHA256), SHARES split strategy, and least-privilege database roles.
 - [ ] **Phase A6:** Formal proofs, threat model finalization, and end-to-end audit.
-- **Phase A6 (Planned):** Production observability with structured JSON logging and automated PII masking.

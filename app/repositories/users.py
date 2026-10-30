@@ -3,7 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.repositories.models import GroupMember, User
+from app.repositories.models import GroupMember, User, UserPii
 
 
 def create(session: Session, name: str, token_hash: str | None = None) -> User:
@@ -55,3 +55,42 @@ def list_all(session: Session) -> list[User]:
     """List all users ordered by creation date."""
     stmt = select(User).order_by(User.id.asc())
     return list(session.scalars(stmt).all())
+
+
+def upsert_user_pii(
+    session: Session,
+    user_id: int,
+    ciphertext: bytes,
+    nonce: bytes,
+    key_id: str,
+    blind_index: str,
+) -> UserPii:
+    """Upsert encrypted VPA record for user."""
+    pii = session.get(UserPii, user_id)
+    if pii is None:
+        pii = UserPii(
+            user_id=user_id,
+            vpa_ciphertext=ciphertext,
+            vpa_nonce=nonce,
+            vpa_key_id=key_id,
+            vpa_blind_index=blind_index,
+        )
+        session.add(pii)
+    else:
+        pii.vpa_ciphertext = ciphertext
+        pii.vpa_nonce = nonce
+        pii.vpa_key_id = key_id
+        pii.vpa_blind_index = blind_index
+    session.flush()
+    return pii
+
+
+def get_user_pii(session: Session, user_id: int) -> UserPii | None:
+    """Retrieve UserPii record by user_id."""
+    return session.get(UserPii, user_id)
+
+
+def get_pii_by_blind_index(session: Session, blind_index: str) -> UserPii | None:
+    """Find UserPii record by blind index."""
+    stmt = select(UserPii).where(UserPii.vpa_blind_index == blind_index)
+    return session.scalar(stmt)

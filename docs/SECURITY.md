@@ -109,3 +109,41 @@ $$\\text{entry\\_hash} = \\text{HMAC-SHA256}(\\text{AUDIT\\_HMAC\\_KEY}[\\text{k
 1. **Asymmetric Digital Signatures (Ed25519):** Transitioning to public-key cryptography enables third parties, external auditors, or group members to verify ledger integrity without needing access to a shared HMAC secret.
 2. **Periodic External Head Anchoring:** Anchoring the daily head hash in an external timestamping service or public transparency log (e.g. RFC 6962 / OpenTimestamps) guarantees that historical records cannot be rewritten even if the private key is later compromised.
 3. **Sparse Merkle Trees:** At large scale (millions of entries across thousands of organizations), Merkle trees allow $O(\\log n)$ inclusion proofs without traversing the entire ledger history sequentially.
+
+---
+
+## 6. Data Protection: Application-Level PII Encryption, Blind Indexing & Least-Privilege DB Roles
+
+### What is Encrypted vs Plaintext (Design Trade-offs)
+- **What is Encrypted:**
+  - Sensitive personal identifiers (User Virtual Payment Addresses / VPAs) are stored strictly encrypted at rest in `user_pii` using **AES-256-GCM** (Galois/Counter Mode).
+  - A cryptographically secure random 96-bit nonce (`os.urandom(12)`) is generated per encryption.
+  - **Associated Authenticated Data (AAD):** The user's public ID (`usr_...`) is cryptographically bound into the AES-GCM ciphertext as AAD. This guarantees ciphertext cannot be copied, transplanted, or reassigned to another database row without raising an `InvalidTag` decryption failure.
+- **What Remains Plaintext and Why:**
+  - Financial amounts (`amount_paise`), expense shares, and balances remain stored as integer paise in plaintext.
+  - *Trade-off Rationale:* Encrypting transaction amounts would eliminate PostgreSQL's ability to execute native aggregate queries (`SUM`), enforce database-level validation (`CHECK (owed_paise >= 0)`), create indexes, and execute fast balance reconciliation. Protection of financial amounts is achieved via the tamper-evident HMAC hash chain and database-level append-only role grants, rather than column-level encryption.
+
+### Exact Match Search via Normalised Blind Indexing
+- Because AES-256-GCM is non-deterministic (each encryption uses a unique random nonce), ciphertexts cannot be indexed or searched with exact-match queries (`WHERE vpa_ciphertext = ...`).
+- Akira implements the **Blind Index pattern**:
+  $$\text{vpa\_blind\_index} = \text{HMAC-SHA256}(\text{PII\_BLIND\_INDEX\_KEY}, \text{normalise}(\text{vpa}))$$
+  where $\text{normalise}(\text{vpa})$ strips surrounding whitespace and converts the address to lowercase.
+- The blind index is stored in a unique, indexed column (`vpa_blind_index`), providing:
+  1. $O(1)$ fast lookups without decrypting every row in the database.
+  2. Database-enforced uniqueness preventing two users from claiming the same payment handle.
+  3. Zero leakage of the underlying plaintext handle to the database or SQL logs.
+
+### Least-Privilege Database Roles (`app_owner` vs `app_rw`)
+Akira enforces structural privilege separation between schema migrations and runtime application execution (`scripts/init_db_roles.sql`):
+1. **`app_owner` (DDL & Migrations):** Owns all tables, sequences, and indexes. Executes Alembic migrations during continuous deployment. Never used by the live web application.
+2. **`app_rw` (Application DML):** Used by the API server at runtime (`DATABASE_URL`).
+   - Does NOT own any tables or schemas (preventing SQL injection exploits from dropping or altering tables).
+   - **Append-Only Tables (`ledger_entries`, `expense_shares`, `provider_events`):** Granted strictly `SELECT, INSERT` privileges. **`UPDATE` and `DELETE` are completely revoked**.
+   - **`notifications` Table:** Granted `SELECT, INSERT`, and `UPDATE (read_at)` only.
+   - **General Entity Tables (`users`, `user_pii`, `groups`, `expenses`, `settlements`, `idempotency_keys`):** Granted `SELECT, INSERT, UPDATE`.
+
+### Explain-Only Architectural Roadmap
+- **KMS Envelope Encryption:** In enterprise deployments (AWS KMS, GCP Cloud KMS, HashiCorp Vault), master Key Encryption Keys (KEKs) wrap per-tenant or per-user Data Encryption Keys (DEKs). The database stores only the encrypted DEK and the encrypted payload.
+- **Crypto-Shredding for Right to Be Forgotten:** Under GDPR / DPDP data protection regulations, deleting a user's individual DEK instantly and permanently shreds all their encrypted PII across all historical database tables and immutable backup snapshots without rewriting append-only ledgers.
+- **Row-Level Security (RLS) with FORCE:** PostgreSQL RLS policies can bind tenant access at the database engine level (e.g. `USING (group_id IN (SELECT group_id FROM group_members WHERE user_id = current_setting('app.current_user_id')::bigint))`), providing a redundant defense-in-depth boundary against application logic bugs.
+- **Transit & Audit Hardening:** TLS with `sslmode=verify-full`, SCRAM-SHA-256 password hashing, and `pgaudit` extension for tamper-resistant database query auditing.

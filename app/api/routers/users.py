@@ -5,13 +5,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_actor, get_db
+from app.adapters.keys import KeyProvider
+from app.api.deps import get_actor, get_db, get_key_provider
 from app.api.schemas.users import (
     TokenRotateOut,
     UserIn,
     UserListOut,
     UserOut,
     UserRegistrationOut,
+    UserVpaIn,
+    UserVpaOut,
 )
 from app.core.config import settings
 from app.repositories.models import User
@@ -58,6 +61,46 @@ def rotate_token(
 ) -> TokenRotateOut:
     new_token = users_service.rotate_user_token(db, actor.id)
     return TokenRotateOut(api_token=new_token)
+
+
+@router.get(
+    "/me",
+    response_model=UserOut,
+    status_code=status.HTTP_200_OK,
+    summary="Get current user profile",
+    description="Returns authenticated user details including masked VPA if configured.",
+)
+def get_current_user(
+    actor: Annotated[User, Depends(get_actor)],
+    db: Annotated[Session, Depends(get_db)],
+    key_provider: Annotated[KeyProvider, Depends(get_key_provider)],
+) -> UserOut:
+    masked_vpa = users_service.get_masked_user_vpa(db, actor.id, actor.public_id, key_provider)
+    return UserOut(
+        id=actor.public_id,
+        name=actor.name,
+        created_at=actor.created_at,
+        vpa_masked=masked_vpa,
+    )
+
+
+@router.put(
+    "/me/vpa",
+    response_model=UserVpaOut,
+    status_code=status.HTTP_200_OK,
+    summary="Set or update caller's UPI VPA",
+    description=(
+        "Encrypts VPA at application layer with AES-256-GCM and stores blind index for lookup."
+    ),
+)
+def set_vpa(
+    payload: UserVpaIn,
+    actor: Annotated[User, Depends(get_actor)],
+    db: Annotated[Session, Depends(get_db)],
+    key_provider: Annotated[KeyProvider, Depends(get_key_provider)],
+) -> UserVpaOut:
+    masked = users_service.set_user_vpa(db, actor, payload.vpa, key_provider)
+    return UserVpaOut(vpa_masked=masked)
 
 
 @router.get(

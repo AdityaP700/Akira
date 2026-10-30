@@ -33,6 +33,7 @@ def test_alembic_upgrade_and_downgrade(tmp_path: Path) -> None:
         "idempotency_keys",
         "provider_events",
         "notifications",
+        "user_pii",
         "alembic_version",
     }
     assert expected_tables.issubset(table_names)
@@ -52,12 +53,23 @@ def test_alembic_upgrade_and_downgrade(tmp_path: Path) -> None:
     group_columns = {col["name"] for col in inspector.get_columns("groups")}
     assert "ledger_head_hash" in group_columns
 
+    # Verify user_pii columns added by 005_user_pii
+    pii_columns = {col["name"] for col in inspector.get_columns("user_pii")}
+    assert {
+        "user_id",
+        "vpa_ciphertext",
+        "vpa_nonce",
+        "vpa_key_id",
+        "vpa_blind_index",
+    }.issubset(pii_columns)
+
     # Run downgrade back to base
     command.downgrade(alembic_cfg, "base")
 
     inspector_after = inspect(engine)
     remaining_tables = set(inspector_after.get_table_names())
     assert "users" not in remaining_tables
+    assert "user_pii" not in remaining_tables
     assert "expenses" not in remaining_tables
     assert "notifications" not in remaining_tables
     assert "provider_events" not in remaining_tables

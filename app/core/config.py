@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     AUDIT_HMAC_KEY: str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     AUDIT_KEY_ID: str = "audit_dev_key"
 
+    # PII Encryption & Blind Index Configuration (AES-256-GCM + Blind Index)
+    PII_ENC_KEY: str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    PII_BLIND_INDEX_KEY: str = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+    PII_KEY_ID: str = "pii_dev_key"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -32,7 +37,8 @@ class Settings(BaseSettings):
         """Never log secrets or full connection strings in logs or debug representations."""
         return (
             f"Settings(APP_ENV={self.APP_ENV!r}, DB='***', "
-            f"WH_KID={self.WEBHOOK_KEY_ID!r}, AUDIT_KID={self.AUDIT_KEY_ID!r})"
+            f"WH_KID={self.WEBHOOK_KEY_ID!r}, AUDIT_KID={self.AUDIT_KEY_ID!r}, "
+            f"PII_KID={self.PII_KEY_ID!r})"
         )
 
     def __str__(self) -> str:

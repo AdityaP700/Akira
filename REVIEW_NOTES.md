@@ -24,6 +24,60 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <commit hash> — A5 — PII protection (Encrypted VPA with AES-256-GCM + Blind Index), SHARES split strategy, and least-privilege DB roles
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented application-level AEAD encryption (AES-256-GCM) with authenticated associated data for sensitive payment identifiers (VPAs), paired with HMAC-SHA256 blind indexing for O(1) duplicate collision prevention without decrypting database records. Introduced the weighted `SHARES` expense split strategy with deterministic remainder distribution, and established least-privilege PostgreSQL roles (`app_owner` vs `app_rw`) completely revoking `UPDATE` and `DELETE` on append-only financial records.
+**Files changed:**
+- `alembic/versions/005_user_pii.py`: Additive migration creating `user_pii` table with `vpa_ciphertext`, `vpa_nonce`, `vpa_key_id`, and indexed unique `vpa_blind_index`.
+- `app/security/pii.py`: Pure domain AES-256-GCM encryption/decryption with user public ID as AAD, HMAC-SHA256 normalized blind indexing, and VPA masking (`al***@domain`).
+- `app/adapters/keys.py`: Extended `KeyProvider` and `EnvKeyProvider` with PII encryption/blind index key resolution and rotation methods.
+- `app/core/config.py`: Added `PII_ENC_KEY`, `PII_BLIND_INDEX_KEY`, and `PII_KEY_ID` configuration settings.
+- `app/repositories/models.py`: Added `UserPii` ORM model.
+- `app/repositories/users.py`: Added `upsert_user_pii`, `get_user_pii`, and `get_pii_by_blind_index`.
+- `app/domain/splits.py`: Implemented `SharesSplit` proportional weight algorithm with deterministic remainder distribution.
+- `app/api/schemas/expenses.py` & `app/services/expenses.py`: Added `ShareWeightIn` model and wired `SHARES` split strategy.
+- `app/api/schemas/users.py` & `app/api/routers/users.py`: Added `PUT /users/me/vpa` and `GET /users/me` with format validation and masked outputs.
+- `app/services/settlements.py` & `app/api/routers/settlements.py`: Integrated payee VPA decryption strictly within provider adapter invocation.
+- `scripts/init_db_roles.sql`: Least-privilege PostgreSQL role definitions granting `app_rw` strictly `SELECT, INSERT` (no `UPDATE`/`DELETE`) on append-only tables.
+- `docs/SECURITY.md`: Added Section 6 covering data protection trade-offs, blind indexing, least-privilege DB roles, KMS envelope encryption, and crypto-shredding.
+- `README.md`: Added Section 10 documenting PII protection, SHARES split, and DB roles.
+- `tests/unit/test_splits_shares.py`: 5 unit tests for SHARES proportions, remainder allocation, and validations.
+- `tests/unit/test_migrations.py`: Updated upgrade/downgrade assertions for schema revision 005.
+- `tests/api/test_pii_and_shares.py`: 9 integration tests verifying raw DB ciphertext, round-trip decryption, AAD tamper detection, blind index 409 conflicts, masked profile outputs, settlement UPI intent generation, and least-privilege grant enforcement.
+**Behaviour before → after:**
+- Users can securely store their UPI VPA via `PUT /users/me/vpa`; raw database dumps contain zero plaintext VPAs.
+- Duplicate VPA attempts yield 409 `VPA_ALREADY_IN_USE` using normalized blind indexes.
+- UPI settlements automatically route to payee's stored VPA without leaking it in plain text to clients or logs.
+- Expenses support `split_type="SHARES"` with positive weights (e.g. 2:1:1) and deterministic remainder distribution.
+- Runtime database connections have no privilege to modify or delete historical ledger, share, or event records.
+**How to verify:**
+1. Run lint and type checking:
+   ```bash
+   ruff check . && ruff format --check . && mypy app/domain app/services
+   ```
+2. Run test suite:
+   ```bash
+   pytest -q --cov=app
+   ```
+3. Test VPA encryption & masking:
+   ```bash
+   PUT /users/me/vpa {"vpa": "alice@okhdfcbank"}
+   # Response: {"vpa_masked": "al***@okhdfcbank"}
+   ```
+**Risks / things to look at closely:**
+- Associated Authenticated Data (AAD) binding ensures ciphertexts cannot be copied to other user accounts.
+- Remainder paise in `SHARES` split are awarded strictly in ascending user ID order to prevent non-determinism.
+- Append-only database constraints prevent application runtime privilege escalation.
+**Expected follow-up:**
+- Phase A6: Formal proofs, threat model finalization, and end-to-end security audit.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths (165 passed, 93% coverage)
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 40dbf32 — A4 — Tamper-evident HMAC hash-chained ledger and verification
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented tamper-evident HMAC-SHA256 hash chaining on all group ledger entries and exposed an audit verification endpoint (`GET /groups/{id}/audit/verify`). Any out-of-band manipulation of ledger amounts, deletions of sequence entries, or direct SQL tampering of underlying expense/settlement rows is cryptographically detected.

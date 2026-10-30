@@ -107,9 +107,64 @@ class ExactSplit:
         return {uid: spec[uid] for uid in participants}
 
 
+class SharesSplit:
+    """Splits an expense by weighted shares (e.g. 2:1:1).
+
+    Formula:
+        base_share = floor(amount_paise * weight / sum_weights)
+    Remainder paise from integer division are allocated 1 paise each to participants
+    in ascending order of their internal user_id.
+    """
+
+    def compute(
+        self,
+        amount_paise: int,
+        participants: list[int],
+        spec: dict[int, int] | None = None,
+    ) -> dict[int, int]:
+        if not participants:
+            raise SplitError("Participants list cannot be empty")
+
+        if amount_paise <= 0:
+            raise SplitError("Amount must be strictly positive")
+
+        if spec is None:
+            raise SplitError("SPLITS_MISMATCH: shares split requires spec")
+
+        participant_set = set(participants)
+        if len(participant_set) != len(participants):
+            raise SplitError("Duplicate participant in split")
+
+        if set(spec.keys()) != participant_set:
+            raise SplitError("SPLITS_MISMATCH: participants do not match spec keys")
+
+        for uid, weight in spec.items():
+            if not isinstance(weight, int) or isinstance(weight, bool) or weight <= 0:
+                raise SplitError(
+                    f"SPLITS_MISMATCH: weight for user {uid} must be a strictly positive integer"
+                )
+
+        total_weight = sum(spec.values())
+        if total_weight <= 0:
+            raise SplitError("SPLITS_MISMATCH: total weight must be strictly positive")
+
+        sorted_ids = sorted(participants)
+        base_shares: dict[int, int] = {}
+        for uid in sorted_ids:
+            base_shares[uid] = (amount_paise * spec[uid]) // total_weight
+
+        remainder = amount_paise - sum(base_shares.values())
+        for i, uid in enumerate(sorted_ids):
+            if i < remainder:
+                base_shares[uid] += 1
+
+        return {uid: base_shares[uid] for uid in participants}
+
+
 _REGISTRY: dict[str, SplitStrategy] = {
     "EQUAL": EqualSplit(),
     "EXACT": ExactSplit(),
+    "SHARES": SharesSplit(),
 }
 
 
