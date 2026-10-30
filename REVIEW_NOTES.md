@@ -24,6 +24,32 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## PENDING — D1-3 — Containerized smoke test and production readiness verification
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Verified containerized deployment via docker compose up --build. Executed 10-step automated smoke test against http://localhost:8000 confirming production readiness.
+**Files changed:**
+- `CHANGELOG.md`: Added D1-3 release verification entry.
+- `REVIEW_NOTES.md`: Documented containerized smoke test execution and results.
+**Behaviour before → after:**
+- Before: Service was verified on local host against containerized database.
+- After: Full containerized stack (akira-api + akira-db) verified end-to-end with inter-container networking, healthchecks, and non-root execution.
+**How to verify:**
+1. Check containers:
+   `docker compose ps` (akira-api Up, akira-db healthy)
+2. Run container smoke test:
+   `python scratch/smoke_test_container.py` (10/10 gates passed)
+**Risks / things to look at closely:**
+- Database container healthcheck ensures API container starts only after PostgreSQL is fully ready to accept connections.
+**Expected follow-up:**
+- Tagging v2-advanced release and human final review.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## e012406 — D1-D — Correction: Previous in-memory SQLite testing vs. verified PostgreSQL 16 test suite
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Appended formal correction disclosing previous in-memory SQLite testing and simulated locks prior to commit 3df5bee. Documented the 5 unproven claims and confirmed they are now 100% verified against live PostgreSQL 16.

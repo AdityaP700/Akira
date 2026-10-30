@@ -19,6 +19,35 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 03:50 — D1-3 — Containerized smoke test and production readiness verification
+**Status:** done
+**What changed:**
+- Built multi-stage production Docker image and launched full containerized topology via `docker compose up --build -d` (`akira-api` + `akira-db`).
+- Executed end-to-end containerized smoke test verifying 10/10 integration gates against `http://localhost:8000`:
+  1. Service health check (`GET /health` -> `status=ok, db=ok`)
+  2. User registration with token generation (`POST /users`)
+  3. Group creation with object authorization (`POST /groups`)
+  4. Group member addition (`POST /groups/{id}/members`)
+  5. Expense recording with integer paise mathematics (`POST /groups/{id}/expenses`)
+  6. Idempotent replay with cached response deduplication (`Idempotency-Key`)
+  7. Dynamic balance derivation (`GET /groups/{id}/balances`)
+  8. Greedy minimal settle-up calculation (`GET /groups/{id}/settle-up`)
+  9. Cryptographic HMAC audit chain verification (`GET /groups/{id}/audit/verify`)
+  10. Strict Pydantic schema validation (`extra="forbid"`)
+**Why:**
+- Comply with `prompts/deploy/D1_pre_deploy_verification.md` Part 3 and `PROJECT_PLAN.md`: verify that the multi-stage container build and live container networking behave identically to local runs in an isolated runtime environment.
+**Not done / failed (and why):**
+- None.
+**Tests:** `docker compose ps` -> all healthy; smoke test -> 10/10 passed; `pytest -q --cov=app` -> 170 passed (93% coverage)
+**Decisions:**
+- API container runs as non-root user (`appuser:appgroup`, UID 10001) for container security hardening.
+**Proposed (not built):**
+- None.
+**Commit:** PENDING `test(deploy): verify containerized service stack and end-to-end smoke test`
+**Next:** Release tagging and final evaluator submission.
+
+---
+
 ## 2026-10-31 03:45 — D1-D — Correction: Previous in-memory SQLite testing vs. verified PostgreSQL 16 test suite
 **Status:** done
 **What changed:**
