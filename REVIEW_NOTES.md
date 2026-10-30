@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## PENDING — D1-B — Migrate test suite and concurrency proofs to real PostgreSQL 16
+## 3df5bee — D1-B — Migrate test suite and concurrency proofs to real PostgreSQL 16
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Completely migrated API, unit, and concurrency test suites to real PostgreSQL 16 via TEST_DATABASE_URL. Proved multi-threaded database row locking (SELECT ... FOR UPDATE) and debt capacity protection without synthetic Python-level locks.
 **Files changed:**

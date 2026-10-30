@@ -36,7 +36,7 @@ uff check . -> ok; mypy app/domain app/services -> ok
 - Test suite uses PostgreSQL TRUNCATE ... RESTART IDENTITY CASCADE between test cases (~5ms cleanup) on a session-scoped engine pool, delivering fast execution (<60s for 170 tests) while ensuring clean state isolation.
 **Proposed (not built):**
 - None.
-**Commit:** PENDING eat(tests): migrate test suite and concurrency proofs to real postgresql 16
+**Commit:** 3df5bee eat(tests): migrate test suite and concurrency proofs to real postgresql 16
 **Next:** D1 Part 2 Steps 1–7 (Live DB migration check, seed script verification, live role permission enforcement, check constraints, row lock and zero net balance drift proofs).
 
 ---
