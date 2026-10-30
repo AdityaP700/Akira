@@ -70,6 +70,26 @@ class OverpaymentError(AppError):
         super().__init__(code="OVERPAYMENT", message=message, status_code=422)
 
 
+class InvalidSignatureError(AppError):
+    def __init__(self, message: str = "Invalid or missing webhook signature") -> None:
+        super().__init__(code="INVALID_SIGNATURE", message=message, status_code=401)
+
+
+class UnknownKeyIdError(AppError):
+    def __init__(self, message: str = "Unknown webhook key identifier") -> None:
+        super().__init__(code="UNKNOWN_KEY_ID", message=message, status_code=401)
+
+
+class StaleTimestampError(AppError):
+    def __init__(self, message: str = "Webhook timestamp is outside tolerance window") -> None:
+        super().__init__(code="STALE_TIMESTAMP", message=message, status_code=401)
+
+
+class InvalidTransitionError(AppError):
+    def __init__(self, message: str = "Illegal settlement state transition") -> None:
+        super().__init__(code="INVALID_TRANSITION", message=message, status_code=422)
+
+
 class PayloadTooLargeError(AppError):
     def __init__(
         self, message: str = "Request payload exceeds maximum allowed size of 64 KB"

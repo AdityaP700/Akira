@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_SETTLEMENTS: str = "10/minute"
     MAX_REQUEST_BODY_BYTES: int = 65536  # 64 KB
 
+    # Webhook HMAC Configuration (Mock Payment Provider)
+    WEBHOOK_HMAC_KEY: str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    WEBHOOK_KEY_ID: str = "wh_dev_key"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -22,7 +26,7 @@ class Settings(BaseSettings):
 
     def __repr__(self) -> str:
         """Never log secrets or full connection strings in logs or debug representations."""
-        return f"Settings(APP_ENV={self.APP_ENV!r}, DATABASE_URL='***')"
+        return f"Settings(APP_ENV={self.APP_ENV!r}, DB='***', KID={self.WEBHOOK_KEY_ID!r})"
 
     def __str__(self) -> str:
         return self.__repr__()

@@ -45,6 +45,21 @@
       "key": "group_id",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "settlement_ref",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "settlement_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notification_id",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -856,6 +871,194 @@
           }
         }
       ]
+    },
+    {
+      "name": "20. Initiate UPI Settlement (Ankit pays Mohit \u20b9400 via UPI)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{ankit_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"from_user\": \"{{ankit_id}}\",\n  \"to_user\": \"{{mohit_id}}\",\n  \"amount\": \"400.00\",\n  \"method\": \"UPI\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/groups/{{group_id}}/settlements",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "settlements"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 Created and settlement is PENDING\", function () {",
+              "    pm.response.to.have.status(201);",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql(\"PENDING\");",
+              "    pm.expect(jsonData.reference).to.be.a(\"string\");",
+              "    pm.expect(jsonData.upi_link).to.be.a(\"string\");",
+              "    pm.collectionVariables.set(\"settlement_ref\", jsonData.reference);",
+              "    pm.collectionVariables.set(\"settlement_id\", jsonData.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "21. Simulate Provider Webhook Payment (Dev helper outcome=success)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{base_url}}/dev/mock-provider/pay/{{settlement_ref}}?outcome=success",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "dev",
+            "mock-provider",
+            "pay",
+            "{{settlement_ref}}"
+          ],
+          "query": [
+            {
+              "key": "outcome",
+              "value": "success"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 and settlement transitioned to SUCCESS\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql(\"SUCCESS\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "22. Check Unread Notifications for Mohit (Creditor)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/users/me/notifications?unread=true",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users",
+            "me",
+            "notifications"
+          ],
+          "query": [
+            {
+              "key": "unread",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 and returns unread notifications\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.items.length).to.be.above(0);",
+              "    pm.collectionVariables.set(\"notification_id\", jsonData.items[0].id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "23. Mark Notification as Read",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/users/me/notifications/{{notification_id}}/read",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users",
+            "me",
+            "notifications",
+            "{{notification_id}}",
+            "read"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 and notification is marked read\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.read).to.eql(true);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "response": []
     }
   ]
 }

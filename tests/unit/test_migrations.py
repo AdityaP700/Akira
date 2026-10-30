@@ -31,13 +31,19 @@ def test_alembic_upgrade_and_downgrade(tmp_path: Path) -> None:
         "settlements",
         "ledger_entries",
         "idempotency_keys",
+        "provider_events",
+        "notifications",
         "alembic_version",
     }
     assert expected_tables.issubset(table_names)
 
     # Verify token_hash column added by 002_user_token_hash
-    columns = {col["name"] for col in inspector.get_columns("users")}
-    assert "token_hash" in columns
+    user_columns = {col["name"] for col in inspector.get_columns("users")}
+    assert "token_hash" in user_columns
+
+    # Verify settlement columns added by 003_settlement_lifecycle_and_notifications
+    settlement_columns = {col["name"] for col in inspector.get_columns("settlements")}
+    assert {"reference", "created_by", "updated_at", "provider_intent"}.issubset(settlement_columns)
 
     # Run downgrade back to base
     command.downgrade(alembic_cfg, "base")
@@ -46,3 +52,5 @@ def test_alembic_upgrade_and_downgrade(tmp_path: Path) -> None:
     remaining_tables = set(inspector_after.get_table_names())
     assert "users" not in remaining_tables
     assert "expenses" not in remaining_tables
+    assert "notifications" not in remaining_tables
+    assert "provider_events" not in remaining_tables

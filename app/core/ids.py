@@ -5,6 +5,8 @@ Generates identifiers with prefixes:
 - grp_ (groups)
 - exp_ (expenses)
 - stl_ (settlements)
+- ntf_ (notifications)
+- ref_ (settlement references)
 """
 
 import secrets
@@ -31,3 +33,11 @@ def new_expense_id() -> str:
 
 def new_settlement_id() -> str:
     return generate_id("stl")
+
+
+def new_notification_id() -> str:
+    return generate_id("ntf")
+
+
+def new_reference_id() -> str:
+    return generate_id("ref")

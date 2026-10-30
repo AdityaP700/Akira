@@ -47,3 +47,47 @@ flowchart TB
   - `RATE_LIMIT_AUTHENTICATED`: 60 per minute (Token based).
   - `RATE_LIMIT_SETTLEMENTS`: 10 per minute (Token/IP based).
 - **Production Trade-off:** In-memory rate limiting is process-local. In a horizontally scaled production deployment with multiple Uvicorn worker processes or containers, rate limit counters would be stored in a distributed key-value store (e.g. Redis).
+
+---
+
+## 4. Webhook Integrity & Payment Lifecycle Security (OWASP API10)
+
+Akira implements bank-grade defenses against unsafe API consumption, replay attacks, and state race conditions in external payment callbacks:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant API as Akira API
+    participant Provider as Payment Provider
+    participant DB as PostgreSQL Ledger
+
+    Client->>API: POST /groups/{id}/settlements (UPI)
+    API->>DB: Lock group (FOR UPDATE), validate debt capacity, insert PENDING
+    API->>Provider: create_collect(ref, amount, vpa) [OUTSIDE DB TX]
+    Provider-->>API: ProviderIntent (UPI intent link)
+    API->>DB: Update settlement with provider_intent
+    API-->>Client: 201 Created (reference, upi_link)
+
+    Note over Provider,API: Asynchronous Payment Completion
+
+    Provider->>API: POST /webhooks/mock-provider (X-Provider-Signature)
+    API->>API: 1. Verify HMAC-SHA256 over raw body<br/>2. Validate timestamp |t - now| <= 300s<br/>3. Verify key ID (kid)
+    API->>DB: 4. Deduplicate via provider_events(event_id PK)
+    alt New Event & Forward Transition
+        API->>DB: Apply forward state transition (PENDING -> SUCCESS)<br/>Append SETTLEMENT ledger entry<br/>Create notifications
+        API-->>Provider: 200 OK {"status": "processed"}
+    else Duplicate or Out-of-Order Event
+        API-->>Provider: 200 OK {"status": "ignored"}
+    end
+```
+
+### Key Security Controls:
+1. **Raw Body HMAC Verification:** Webhook signatures are computed strictly over raw bytes (`v1 = HMAC_SHA256(key[kid], f"{t}.{raw_body}")`). Parsing occurs only *after* cryptographic verification succeeds.
+2. **Replay Window Enforcement:** Webhooks with timestamp drift exceeding $\pm 300	ext{ s}$ are rejected immediately with 401 `STALE_TIMESTAMP`.
+3. **Constant-Time Digest Comparison:** Signature validation uses `hmac.compare_digest` to prevent timing attacks.
+4. **Idempotency & Deduplication:** Every webhook event is recorded in `provider_events(event_id PK)`. Redelivered events are safely acknowledged with HTTP 200 without executing duplicate mutations.
+5. **Monotonic Forward-Only State Transitions:** Terminal statuses (`SUCCESS`, `FAILED`) cannot be overridden. Out-of-order or delayed webhooks (e.g. `FAILED` arriving after `SUCCESS`) are safely ignored.
+6. **Debt Reservation Under Concurrency:** In-flight settlements (`PENDING`, `CLAIMED`) reserve allowable pairwise debt capacity. Concurrent requests attempting to settle the same debt in parallel are rejected with 422 `OVERPAYMENT`.
+7. **Isolation of Foreign Calls:** Provider interactions occur strictly outside database transactions. Database connections are never held open during network I/O.
+8. **Sensitive Data Masking:** Webhook signatures, provider tokens, VPAs, and phone numbers are redacted in all structured access logs via `MaskingFilter`.

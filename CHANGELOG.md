@@ -19,6 +19,34 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-30 20:45 — A3 — Settlement payment lifecycle, signed webhooks, and notifications
+**Status:** done
+**What changed:**
+- Added Alembic migration `003_settlement_lifecycle_and_notifications.py` introducing `reference`, `created_by`, `updated_at`, `provider_intent` on `settlements`, and creating `provider_events` and `notifications` tables.
+- Implemented `PaymentProvider` protocol (`MockPaymentProvider`), `KeyProvider` protocol (`EnvKeyProvider`), and `Notifier` protocol (`DbNotifier`).
+- Implemented settlement state machine in `app/domain/settlement_state.py` supporting UPI (`PENDING -> SUCCESS | FAILED`), manual cash claims (`CLAIMED -> CONFIRMED | REJECTED`), and direct settlements (`CONFIRMED`).
+- Enforced two-phase foreign execution: DB group lock & PENDING creation -> external provider API invocation outside DB tx -> short DB transaction saving intent details.
+- Implemented signed webhook endpoint `POST /webhooks/mock-provider` verifying raw body HMAC-SHA256 signatures (`X-Provider-Signature: kid=<id>,t=<unix>,v1=<hex>`), +/- 300s timestamp replay tolerance, constant-time `hmac.compare_digest`, and idempotent deduplication via `provider_events`.
+- Added dev simulation endpoint `POST /dev/mock-provider/pay/{reference}` (disabled in prod) and provider status check fallback `POST /groups/{group_id}/settlements/{id}/refresh`.
+- Added in-flight debt capacity reservation (`available_debt = max_allowed - pending_paise`) preventing concurrent overpayment.
+- Implemented notification system (`notifications` table, `app/services/notifications.py`, `GET /users/me/notifications?unread=true`, `POST /users/me/notifications/{id}/read`) for member additions, expense creation, settlement claims, and status updates.
+- Added 8 comprehensive integration tests in `tests/api/test_settlement_lifecycle.py` and updated `docs/SECURITY.md`, `README.md`, and `postman/expense-sharing.postman_collection.json`.
+**Why:**
+- Ensure settlements are only marked paid when validated by cryptographic provider evidence or explicit creditor confirmation; implement two-phase external call isolation, replay protection, and in-flight concurrency guards per PROJECT_PLAN.md §5, GUARDRAILS.md (D, E5), and prompts/advanced/A3_settlement_lifecycle_and_webhooks.md.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` → 142 passed, 0 failed (93% total coverage); `make lint` → ok (ruff & mypy clean)
+**Decisions:**
+- User explicitly approved adding `WEBHOOK_HMAC_KEY` and `WEBHOOK_KEY_ID` to `.env.example`.
+- Direct settlements (`method="OTHER"` or receiver-initiated) immediately confirm to maintain backwards compatibility with baseline tests.
+- Debtor-initiated cash settlements create a `CLAIMED` status requiring receiver confirmation (`POST .../confirm` or `POST .../reject`).
+**Proposed (not built):**
+- Real UPI provider integration (Decentro / Razorpay) in production deployment phase.
+**Commit:** <hash> `feat(settlements): payment lifecycle with signed webhooks, fallback and notifications`
+**Next:** Phase A4 — Tamper-Evident HMAC Hash-Chained Ledger (`prompts/advanced/A4_tamper_evident_ledger.md`).
+
+---
+
 ## 2026-10-30 19:55 — A2 — Edge hardening, rate limiting, and structured observability (OWASP API3/API4/API6/API8/API9)
 **Status:** done
 **What changed:**

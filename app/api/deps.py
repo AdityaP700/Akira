@@ -5,6 +5,9 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.adapters.keys import EnvKeyProvider, KeyProvider
+from app.adapters.notifier import DbNotifier, Notifier
+from app.adapters.payment_provider import MockPaymentProvider, PaymentProvider
 from app.core.db import get_session
 from app.core.errors import UnauthenticatedError
 from app.repositories.models import User
@@ -12,10 +15,30 @@ from app.security.auth import authenticate_token
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
+# Adapter singletons
+_payment_provider = MockPaymentProvider()
+_key_provider = EnvKeyProvider()
+_notifier = DbNotifier()
+
 
 def get_db() -> Generator[Session, None, None]:
     """Dependency that provides a transactional database session."""
     yield from get_session()
+
+
+def get_payment_provider() -> PaymentProvider:
+    """Dependency providing the PaymentProvider adapter."""
+    return _payment_provider
+
+
+def get_key_provider() -> KeyProvider:
+    """Dependency providing the KeyProvider adapter."""
+    return _key_provider
+
+
+def get_notifier() -> Notifier:
+    """Dependency providing the Notifier adapter."""
+    return _notifier
 
 
 def get_actor(

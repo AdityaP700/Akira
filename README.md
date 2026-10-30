@@ -149,7 +149,14 @@ All error responses return a uniform envelope with the trace ID:
 | `GET` | `/groups/{id}/balances` | None | Derived pairwise debts and net balances |
 | `GET` | `/balances` | None | Balances across all groups (brief alias) |
 | `GET` | `/groups/{id}/settle-up` | None | Greedy debt simplification suggestions |
-| `POST` | `/groups/{id}/settlements` | `{"from_user", "to_user", "amount"}` | Record confirmed repayment |
+| `POST` | `/groups/{id}/settlements` | `{"from_user", "to_user", "amount", "method": "UPI|CASH|OTHER"}` | Initiate settlement (UPI generates intent link; CASH creates claim) |
+| `POST` | `/groups/{id}/settlements/{id}/confirm` | None | Receiver confirms manual cash claim (`CLAIMED` -> `CONFIRMED`) |
+| `POST` | `/groups/{id}/settlements/{id}/reject` | None | Receiver rejects manual cash claim (`CLAIMED` -> `REJECTED`) |
+| `POST` | `/groups/{id}/settlements/{id}/refresh` | None | Fallback status check querying payment provider |
+| `POST` | `/webhooks/mock-provider` | `{"event_id", "reference", "status", "amount"}` | Signed webhook callback (`X-Provider-Signature`) |
+| `POST` | `/dev/mock-provider/pay/{ref}` | None (`?outcome=success|failed`) | Dev helper simulating provider payment callback |
+| `GET` | `/users/me/notifications` | None (`?unread=true`) | Keyset-paginated notification feed for actor |
+| `POST` | `/users/me/notifications/{id}/read` | None | Mark notification as read |
 | `GET` | `/groups/{id}/settlements` | None (`?limit=&cursor=`) | Keyset-paginated settlement history |
 
 ### Example Balances Output (`GET /groups/{id}/balances`)
@@ -246,9 +253,63 @@ This mirrors real-world payments clearing and settlement architectures (such as 
 
 ---
 
-## 8. Testing & Verification
+---
 
-The test suite contains 134 automated tests spanning pure domain mathematics, database constraints, migrations, security edge hardening, and full API integration:
+## 8. Settlement Payment Lifecycle & Signed Webhooks
+
+Akira mirrors bank-grade payments infrastructure (such as Decentro UPI Collections): a settlement is marked `CONFIRMED` or `SUCCESS` only when external evidence or explicit creditor confirmation confirms money arrival.
+
+### State Machine (`app/domain/settlement_state.py`)
+```text
+UPI:     PENDING  --> SUCCESS | FAILED    (terminal states; retry requires new settlement)
+Manual:  CLAIMED  --> CONFIRMED | REJECTED (debtor initiates claim; receiver decides)
+Direct:  CONFIRMED                         (receiver records receipt directly; backwards compatible)
+```
+
+Only `SUCCESS` and `CONFIRMED` settlements alter group balances.
+
+### Two-Phase Foreign Execution
+1. **DB Phase 1 (Atomic):** Locks group row (`SELECT ... FOR UPDATE`), validates in-flight debt capacity (`available = max_allowed - pending`), inserts settlement with status `PENDING` and a unique reference (`ref_...`), and commits.
+2. **Provider Phase:** Invokes external payment provider outside the database transaction. Database connections are never held open during network calls.
+3. **DB Phase 2 (Atomic):** Updates settlement with provider intent (`upi_link`).
+
+### Webhook Verification & Deduplication
+- **Endpoint:** `POST /webhooks/mock-provider`
+- **Header:** `X-Provider-Signature: kid=<key_id>,t=<unix_timestamp>,v1=<hex_signature>`
+- **Signature Calculation:** `v1 = HMAC-SHA256(secret, f"{t}.{raw_body}")` over raw request body bytes.
+- **Verification Gates:**
+  1. Header parsing & unknown `kid` check (401 `UNKNOWN_KEY_ID`).
+  2. Timestamp tolerance check $|t - 	ext{now}| \le 300	ext{ s}$ (401 `STALE_TIMESTAMP`).
+  3. Constant-time digest comparison (`hmac.compare_digest`).
+  4. Idempotent recording in `provider_events(event_id PK)` — duplicates return 200 without re-processing.
+  5. Monotonic forward-only state progression — out-of-order or late events cannot revert `SUCCESS`.
+  6. Amount integrity check — callback amount must strictly equal settlement record.
+
+### Demo & Testing Workflow
+For local testing and automated pipelines without live UPI hardware:
+1. **Initiate UPI Settlement:**
+   ```bash
+   POST /groups/{group_id}/settlements
+   {"from_user": "usr_ankit", "to_user": "usr_mohit", "amount": "400.00", "method": "UPI"}
+   # Returns: {"id": "stl_...", "status": "PENDING", "reference": "ref_...", "upi_link": "upi://pay?..."}
+   ```
+2. **Simulate Provider Payment Callback (Dev-only helper):**
+   ```bash
+   POST /dev/mock-provider/pay/{reference}?outcome=success
+   # Signs payload with dev HMAC key and posts to /webhooks/mock-provider
+   # Settlement transitions to SUCCESS; balance is updated; notifications emitted.
+   ```
+3. **Fallback Refresh:**
+   ```bash
+   POST /groups/{group_id}/settlements/{id}/refresh
+   # Queries provider directly if webhook was delayed or lost.
+   ```
+
+---
+
+## 9. Testing & Verification
+
+The test suite contains 142 automated tests spanning pure domain mathematics, database constraints, migrations, security edge hardening, and full API integration:
 
 ```bash
 # Run tests with coverage
@@ -262,14 +323,14 @@ mypy app/domain app/services
 ```
 
 ### Coverage Highlights
-- **Total Test Suite:** 134 passed, 0 failures, 94% total code coverage.
+- **Total Test Suite:** 142 passed, 0 failures, 93% total code coverage.
 - **Pure Domain (`app/domain/`):** 100% test coverage across money parsing, equal/exact splits, balance netting, and settle-up simplification.
 - **Zero Float Invariant:** Verified via AST and regex inspection (`tests/unit/test_no_float.py`).
 - **Security & BOLA Suite:** 100% coverage on object authorization guards (`app/security/guards.py`) and edge hardening.
 
 ---
 
-## 9. Reliability & Security Notes
+## 10. Reliability & Security Notes
 
 - **Authentication & BOLA Prevention (Phase A1):** Bearer tokens (`est_...`) validated via SHA-256 hashes in constant time (`hmac.compare_digest`). Non-members receive 404 `NOT_FOUND` to prevent group ID enumeration (OWASP API1).
 - **Edge Hardening & Abuse Protection (Phase A2):** 64 KB maximum payload limit (413), JSON Content-Type validation (415), slowapi rate limiting per token and per IP (429 with `Retry-After`), and defensive security headers (`nosniff`, `no-store`, `frame-ancestors 'none'`, `no-referrer`, HSTS in prod).
@@ -280,11 +341,11 @@ mypy app/domain app/services
 
 ---
 
-## 10. Advanced Phases Roadmap
+## 11. Advanced Phases Roadmap
 
 - [x] **Phase A1:** Per-user authentication & object-level authorization (group membership required for all group routes).
 - [x] **Phase A2:** Edge hardening, IP & token-based rate limiting (slowapi), security headers, masked structured logs, and OWASP API Top 10 matrix.
-- [ ] **Phase A3:** Settlement payment lifecycle with mock payment provider and HMAC-SHA256 signed webhooks.
+- [x] **Phase A3:** Settlement payment lifecycle with mock payment provider and HMAC-SHA256 signed webhooks.
 - [ ] **Phase A4:** Tamper-evident HMAC hash-chained ledger with `/audit/verify` integrity endpoint.
 - [ ] **Phase A5:** Encrypted user UPI VPA with blind indexing (AES-256-GCM + HMAC-SHA256) and dual database roles.
 - [ ] **Phase A6:** Formal proofs, threat model finalization, and end-to-end audit.

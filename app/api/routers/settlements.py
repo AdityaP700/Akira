@@ -1,4 +1,4 @@
-"""Router for settlement repayment endpoints."""
+"""Router for settlement repayment, confirmation, rejection, and refresh endpoints."""
 
 import json
 import re
@@ -7,7 +7,9 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_actor, get_db
+from app.adapters.notifier import Notifier
+from app.adapters.payment_provider import PaymentProvider
+from app.api.deps import get_actor, get_db, get_notifier, get_payment_provider
 from app.api.schemas.settlements import SettlementIn, SettlementListOut, SettlementOut
 from app.core.config import settings
 from app.core.errors import ValidationError
@@ -42,6 +44,8 @@ def create_settlement(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     actor: Annotated[User, Depends(get_actor)],
+    payment_provider: Annotated[PaymentProvider, Depends(get_payment_provider)],
+    notifier: Annotated[Notifier, Depends(get_notifier)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Any:
     _validate_idempotency_key(idempotency_key)
@@ -55,6 +59,8 @@ def create_settlement(
         http_method=request.method,
         http_path=f"/groups/{group_id}/settlements",
         canonical_body=canonical_body,
+        payment_provider=payment_provider,
+        notifier=notifier,
     )
     return data
 
@@ -84,3 +90,74 @@ def list_settlements(
         cursor=cursor,
     )
     return SettlementListOut(items=items, next_cursor=next_cursor)  # type: ignore[arg-type]
+
+
+@router.post(
+    "/groups/{group_id}/settlements/{settlement_id}/confirm",
+    response_model=SettlementOut,
+    status_code=status.HTTP_200_OK,
+    summary="Confirm a claimed settlement (receiver only)",
+    description="The creditor confirms receiving the claimed payment. Non-receivers get 404.",
+)
+def confirm_settlement(
+    group_id: str,
+    settlement_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    actor: Annotated[User, Depends(get_actor)],
+    notifier: Annotated[Notifier, Depends(get_notifier)],
+) -> Any:
+    return settlements_service.confirm_settlement(
+        session=db,
+        group_public_id=group_id,
+        settlement_public_id=settlement_id,
+        actor=actor,
+        notifier=notifier,
+    )
+
+
+@router.post(
+    "/groups/{group_id}/settlements/{settlement_id}/reject",
+    response_model=SettlementOut,
+    status_code=status.HTTP_200_OK,
+    summary="Reject a claimed settlement (receiver only)",
+    description="The creditor rejects the claimed payment. Non-receivers get 404.",
+)
+def reject_settlement(
+    group_id: str,
+    settlement_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    actor: Annotated[User, Depends(get_actor)],
+    notifier: Annotated[Notifier, Depends(get_notifier)],
+) -> Any:
+    return settlements_service.reject_settlement(
+        session=db,
+        group_public_id=group_id,
+        settlement_public_id=settlement_id,
+        actor=actor,
+        notifier=notifier,
+    )
+
+
+@router.post(
+    "/groups/{group_id}/settlements/{settlement_id}/refresh",
+    response_model=SettlementOut,
+    status_code=status.HTTP_200_OK,
+    summary="Refresh in-flight settlement status from payment provider",
+    description="Fallback status query to sync pending settlements with provider state.",
+)
+def refresh_settlement(
+    group_id: str,
+    settlement_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    actor: Annotated[User, Depends(get_actor)],
+    payment_provider: Annotated[PaymentProvider, Depends(get_payment_provider)],
+    notifier: Annotated[Notifier, Depends(get_notifier)],
+) -> Any:
+    return settlements_service.refresh_settlement_status(
+        session=db,
+        group_public_id=group_id,
+        settlement_public_id=settlement_id,
+        actor=actor,
+        payment_provider=payment_provider,
+        notifier=notifier,
+    )

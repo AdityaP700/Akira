@@ -1,7 +1,17 @@
 from fastapi import FastAPI
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.api.routers import balances, expenses, groups, health, settlements, users
+from app.api.routers import (
+    balances,
+    dev,
+    expenses,
+    groups,
+    health,
+    notifications,
+    settlements,
+    users,
+    webhooks,
+)
 from app.core.config import settings
 from app.core.errors import register_error_handlers
 from app.core.logging import RequestLoggingMiddleware, setup_logging
@@ -43,13 +53,19 @@ def create_app() -> FastAPI:
     # Global error handlers
     register_error_handlers(app)
 
-    # Include routers
+    # Include core routers
     app.include_router(health.router)
     app.include_router(users.router)
     app.include_router(groups.router)
     app.include_router(expenses.router)
     app.include_router(balances.router)
     app.include_router(settlements.router)
+    app.include_router(notifications.router)
+    app.include_router(webhooks.router)
+
+    # Include mock-provider dev simulation routes only in non-production environments
+    if settings.APP_ENV != "prod":
+        app.include_router(dev.router)
 
     return app
 

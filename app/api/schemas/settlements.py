@@ -14,9 +14,10 @@ class SettlementIn(BaseModel):
     from_user: str = Field(min_length=1, max_length=64, description="Debtor user public ID")
     to_user: str = Field(min_length=1, max_length=64, description="Creditor user public ID")
     amount: str = Field(description="Settlement rupee amount, formatted with up to 2 decimals")
-    method: Literal["CASH", "OTHER"] = Field(
-        default="OTHER", description="Payment method: CASH or OTHER"
+    method: Literal["UPI", "CASH", "OTHER"] = Field(
+        default="OTHER", description="Payment method: UPI, CASH, or OTHER"
     )
+    payee_vpa: str | None = Field(default=None, description="Payee VPA for UPI collections")
 
     @field_validator("from_user", mode="before")
     @classmethod
@@ -56,7 +57,10 @@ class SettlementOut(BaseModel):
     amount: str
     status: str
     method: str
+    reference: str | None = None
+    upi_link: str | None = None
     created_at: datetime
+    updated_at: datetime | None = None
 
 
 class SettlementListOut(BaseModel):
@@ -64,3 +68,13 @@ class SettlementListOut(BaseModel):
 
     items: list[SettlementOut]
     next_cursor: str | None = None
+
+
+class ProviderWebhookIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: str = Field(min_length=1, max_length=64)
+    reference: str = Field(min_length=1, max_length=64)
+    status: Literal["SUCCESS", "FAILED"]
+    amount: str
+    occurred_at: datetime | None = None

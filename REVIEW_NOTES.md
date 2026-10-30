@@ -24,6 +24,68 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <commit-hash> — A3 — Settlement payment lifecycle, signed webhooks, and notifications
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented an enterprise-grade settlement payment lifecycle, HMAC-SHA256 signed webhook processing, provider status refresh fallback, and transactional notification logging. Settlements now transition monotonically based on external provider callbacks or receiver confirmations, with concurrent in-flight debt reservation and complete isolation between database transactions and foreign network calls.
+**Files changed:**
+- `alembic/versions/003_settlement_lifecycle_and_notifications.py`: Additive migration adding `reference`, `created_by`, `updated_at`, `provider_intent` to `settlements`, and creating `provider_events` and `notifications` tables.
+- `app/adapters/keys.py`: `KeyProvider` protocol and `EnvKeyProvider` resolving HMAC keys by key ID.
+- `app/adapters/payment_provider.py`: `PaymentProvider` protocol, data classes, and `MockPaymentProvider` generating valid UPI deep links.
+- `app/adapters/notifier.py`: `Notifier` protocol and `DbNotifier` recording transactional notifications.
+- `app/api/deps.py`: Injected dependencies for payment provider, key provider, and notifier.
+- `app/api/routers/dev.py`: Dev-only helper `POST /dev/mock-provider/pay/{reference}` for testing and demo callbacks (disabled in prod).
+- `app/api/routers/notifications.py`: Added `GET /users/me/notifications` and `POST /users/me/notifications/{id}/read`.
+- `app/api/routers/settlements.py`: Added endpoints for manual cash confirmation/rejection (`.../confirm`, `.../reject`) and status-check refresh (`.../refresh`).
+- `app/api/routers/webhooks.py`: `POST /webhooks/mock-provider` handling raw-body signature verification, deduplication, and transition execution.
+- `app/api/schemas/notifications.py`: Notification response schemas with keyset cursor pagination.
+- `app/api/schemas/settlements.py`: Added `payee_vpa`, `upi_link`, `reference`, and webhook payload validation schemas.
+- `app/core/config.py`: Added `WEBHOOK_HMAC_KEY` and `WEBHOOK_KEY_ID` configuration settings.
+- `app/core/errors.py`: Added errors for webhook verification (`InvalidSignatureError`, `UnknownKeyIdError`, `StaleTimestampError`, `AmountMismatchError`, `NotificationNotFoundError`).
+- `app/core/ids.py`: Added public ID generators for notifications (`ntf_...`) and settlement references (`ref_...`).
+- `app/domain/settlement_state.py`: Explicit settlement state machine (`UPI`, `CASH`, `OTHER`) enforcing forward-only transitions.
+- `app/main.py`: Mounted webhooks, notifications, and dev simulation routers.
+- `app/repositories/models.py`: Added model fields for `Settlement`, `ProviderEvent`, and `Notification`.
+- `app/repositories/notifications.py`: Repository for creating, listing, and marking notifications read.
+- `app/repositories/settlements.py`: Added methods for reference lookup and provider event recording.
+- `app/security/signatures.py`: Cryptographic helpers for HMAC-SHA256 signature computation, header construction, parsing, and constant-time verification.
+- `app/services/expenses.py`: Emitted `EXPENSE_CREATED` notifications to all participants snapshotting their individual share.
+- `app/services/groups.py`: Emitted `MEMBER_ADDED` notifications.
+- `app/services/notifications.py`: Service for keyset-paginated notification reading and unread counts.
+- `app/services/settlements.py`: Implemented two-phase settlement creation, debt capacity reservation, webhook processing with deduplication, manual cash claims/confirmations/rejections, and provider status refresh fallback.
+- `docs/SECURITY.md`: Added Section 4 detailing Webhook Integrity and Payment Lifecycle Security (OWASP API10).
+- `README.md`: Documented settlement payment lifecycle, two-phase foreign execution, state machines, and testing workflows.
+- `postman/expense-sharing.postman_collection.json`: Added Postman steps 20-23 demonstrating UPI settlement creation, webhook payment simulation, balance verification, and notification consumption.
+- `tests/unit/test_migrations.py`: Added migration tests asserting upgrade/downgrade behavior for schema revision 003.
+- `tests/api/test_settlement_lifecycle.py`: 8 comprehensive tests covering happy UPI path, webhook signature security, deduplication, out-of-order events, refresh fallback, manual cash flows, concurrent debt reservation, and notifications.
+**Behaviour before → after:**
+- Settlements with `method="UPI"` start as `PENDING` with a UPI intent link and do not alter balances until confirmed via signed webhook or refresh.
+- Debtor-initiated `method="CASH"` settlements start as `CLAIMED` and require receiver confirmation (`POST .../confirm`) before affecting balances.
+- In-flight settlements reserve allowable pairwise debt capacity, rejecting parallel overpayment attempts with 422 `OVERPAYMENT`.
+- Webhooks must present valid `X-Provider-Signature` matching HMAC-SHA256 over raw request bytes within +/- 300s.
+- Users receive notifications on member additions, expense creation (with their exact share), settlement claims, and settlement outcomes.
+**How to verify:**
+1. `pytest -q --cov=app` (142 passed, 0 failed, 93% total coverage).
+2. `ruff check .` && `ruff format --check .` && `mypy app/domain app/services` (all clean).
+3. Test UPI settlement via Postman collection items 20-23 or curl:
+   ```bash
+   POST /groups/{group_id}/settlements {"from_user": "usr_ankit", "to_user": "usr_mohit", "amount": "400.00", "method": "UPI"}
+   POST /dev/mock-provider/pay/{reference}?outcome=success
+   GET /users/me/notifications?unread=true
+   ```
+**Risks / things to look at closely:**
+- Group row locking is consistently acquired first before reading debt capacity or writing settlement records.
+- Foreign provider network calls are made strictly outside database transactions.
+- Webhook body bytes are verified cryptographically before any JSON parsing.
+**Expected follow-up:**
+- Phase A4: Tamper-Evident HMAC Hash-Chained Ledger (`GET /groups/{id}/audit/verify`).
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 0d00fe7 — A2 — Edge hardening, rate limiting, and structured observability (OWASP API3/API4/API6/API8/API9)
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented comprehensive edge security hardening, rate limiting, and structured observability. Added middleware enforcing 64 KB payload caps (413) and JSON content-type restrictions (415), slowapi-powered rate limiting (429 with RFC 6585 Retry-After), security response headers, automatic API doc disablement in prod, regex-based log sanitisation for credentials and PII, route-templated JSON logging, and database timeout handlers (503).

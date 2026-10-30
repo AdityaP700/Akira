@@ -3,6 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.adapters.notifier import DbNotifier, Notifier
 from app.core.errors import ConflictError, NotFoundError
 from app.repositories import groups as groups_repo
 from app.repositories import users as users_repo
@@ -23,6 +24,7 @@ def add_member(
     group_public_id: str,
     user_public_id: str,
     actor: User,
+    notifier: Notifier | None = None,
 ) -> tuple[GroupMember, str]:
     """Add a user to a group, returning the member record and user display name.
 
@@ -32,6 +34,9 @@ def add_member(
         NotFoundError: If user to add does not exist.
         ConflictError: If user is already a member.
     """
+    if notifier is None:
+        notifier = DbNotifier()
+
     with session.begin():
         group = require_member(session, group_public_id, actor)
 
@@ -46,6 +51,17 @@ def add_member(
             )
 
         member = groups_repo.add_member(session, group.id, user.id)
+
+        notifier.notify(
+            session=session,
+            user_id=user.id,
+            event_type="MEMBER_ADDED",
+            title="Added to Group",
+            message=f"You were added to group '{group.name}' by {actor.name}.",
+            group_id=group.id,
+            data={"group_id": group.public_id, "added_by": actor.public_id},
+        )
+
         return member, user.name
 
 
@@ -61,7 +77,6 @@ def list_members(
     """
     with session.begin():
         group = require_member(session, group_public_id, actor)
-
         stmt = (
             select(GroupMember, User.name, User.public_id)
             .join(User, GroupMember.user_id == User.id)

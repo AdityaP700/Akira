@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
+from app.adapters.notifier import DbNotifier, Notifier
 from app.api.schemas.expenses import ExpenseIn
 from app.core.errors import (
     IdempotencyKeyReusedError,
@@ -35,6 +36,7 @@ def create_expense(
     http_method: str = "POST",
     http_path: str = "/groups/{group_id}/expenses",
     canonical_body: str = "",
+    notifier: Notifier | None = None,
 ) -> tuple[dict[str, Any], int]:
     """Atomically create an expense, shares, and ledger entry with idempotency.
 
@@ -158,6 +160,28 @@ def create_expense(
             ref_id=expense.id,
             payload=ledger_payload,
         )
+
+        if notifier is None:
+            notifier = DbNotifier()
+
+        for uid, owed in shares_dict.items():
+            if uid != payer.id and owed > 0:
+                notifier.notify(
+                    session=session,
+                    user_id=uid,
+                    event_type="EXPENSE_CREATED",
+                    title="New Expense Added",
+                    message=(
+                        f"{payer.name} added expense '{expense.description}' in '{group.name}'."
+                        f" Your share is ₹{format_paise(owed)}."
+                    ),
+                    group_id=group.id,
+                    data={
+                        "expense_id": expense.public_id,
+                        "amount_paise": amount_paise,
+                        "owed_paise": owed,
+                    },
+                )
 
         # 8. Build response
         all_participant_users = list(
