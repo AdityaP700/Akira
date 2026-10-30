@@ -24,6 +24,37 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## PENDING — B1 — Pure domain logic: money, splits, balances, settle-up
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented pure business logic without I/O or framework dependencies in `app/domain/`. Includes integer paise parsing and formatting with float prevention, Equal and Exact split strategies with remainder tie-breaking, net balance and pairwise debt computation, and greedy debt simplification.
+**Files changed:**
+- `app/domain/money.py`: Strict decimal-based rupee parsing into integer paise and two-decimal paise formatting.
+- `app/domain/splits.py`: SplitStrategy protocol, EqualSplit (ascending user id remainder), ExactSplit, and strategy registry.
+- `app/domain/balances.py`: net_balances and pairwise_debts calculations supporting expense, share, and settlement records.
+- `app/domain/settle.py`: Greedy cash flow simplification yielding at most n-1 transfers with deterministic tie-breaking.
+- `app/domain/settlement_state.py`: Settlement status constants and state machine transition rules.
+- `tests/unit/test_money.py`: Table-driven tests for parsing and formatting, validating rejection of floats, negatives, and invalid decimals.
+- `tests/unit/test_splits.py`: Unit tests for EqualSplit and ExactSplit covering edge cases, rounding, and registry lookup.
+- `tests/unit/test_balances.py`: Unit tests covering brief's Mohit-Rahul-Ankit scenario, settlement netting, and 200 random expenses property test.
+- `tests/unit/test_settle.py`: Unit tests verifying circular debt collapse, tie breaking, and transfer bounds.
+- `tests/unit/test_settlement_state.py`: Unit tests for valid and invalid settlement lifecycle transitions.
+- `tests/unit/test_no_float.py`: Static inspection test ensuring `float(` is never called in domain or service code.
+**Behaviour before → after:**
+- Pure domain algorithms are now fully implemented and verified with 100% test coverage, ready for service and repository integration in Phase B2.
+**How to verify:**
+1. `pytest -q --cov=app` → 68 passed (100% domain coverage, 96% total).
+2. `ruff check .`, `ruff format --check .`, and `mypy app/domain app/services` → all pass with 0 errors.
+**Risks / things to look at closely:**
+- Rounding remains strictly integer paise; sum of shares in EqualSplit and ExactSplit always strictly matches expense amount.
+- Grep test enforces absence of float operations in `app/domain` and `app/services`.
+**Expected follow-up:**
+- Phase B2: Database schema, migrations, and repositories.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
 ## 8b3eb77 — B0 — Bootstrap service skeleton, Docker, CI, health
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Established the project directory layout, configuration with environment variable loading and secret masking, structured JSON logging with request tracing, global error handling envelope, and GET /health check. Added Dockerfile, Docker Compose setup, Makefile, and GitHub Actions CI workflow with PostgreSQL 16 container.
