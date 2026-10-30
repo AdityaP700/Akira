@@ -57,3 +57,14 @@ def is_member(session: Session, group_id: int, user_id: int) -> bool:
         GroupMember.group_id == group_id, GroupMember.user_id == user_id
     )
     return session.scalar(stmt) is not None
+
+
+def list_user_groups(session: Session, user_id: int) -> list[Group]:
+    """List all groups where user_id is a member."""
+    stmt = (
+        select(Group)
+        .join(GroupMember, GroupMember.group_id == Group.id)
+        .where(GroupMember.user_id == user_id)
+        .order_by(Group.id.asc())
+    )
+    return list(session.scalars(stmt).all())

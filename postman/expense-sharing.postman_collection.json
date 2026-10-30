@@ -17,12 +17,27 @@
       "type": "string"
     },
     {
+      "key": "mohit_token",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "rahul_id",
       "value": "",
       "type": "string"
     },
     {
+      "key": "rahul_token",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "ankit_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ankit_token",
       "value": "",
       "type": "string"
     },
@@ -40,8 +55,12 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/health",
-          "host": ["{{base_url}}"],
-          "path": ["health"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "health"
+          ]
         }
       },
       "event": [
@@ -76,8 +95,12 @@
         },
         "url": {
           "raw": "{{base_url}}/users",
-          "host": ["{{base_url}}"],
-          "path": ["users"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users"
+          ]
         }
       },
       "event": [
@@ -88,7 +111,9 @@
               "pm.test(\"Status code is 201\", function () {",
               "    pm.response.to.have.status(201);",
               "    var jsonData = pm.response.json();",
-              "    pm.collectionVariables.set(\"mohit_id\", jsonData.id);",
+              "    var userId = jsonData.id || (jsonData.user && jsonData.user.id);",
+              "    pm.collectionVariables.set(\"mohit_id\", userId);",
+              "    pm.collectionVariables.set(\"mohit_token\", jsonData.api_token);",
               "});"
             ],
             "type": "text/javascript"
@@ -112,8 +137,12 @@
         },
         "url": {
           "raw": "{{base_url}}/users",
-          "host": ["{{base_url}}"],
-          "path": ["users"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users"
+          ]
         }
       },
       "event": [
@@ -124,7 +153,9 @@
               "pm.test(\"Status code is 201\", function () {",
               "    pm.response.to.have.status(201);",
               "    var jsonData = pm.response.json();",
-              "    pm.collectionVariables.set(\"rahul_id\", jsonData.id);",
+              "    var userId = jsonData.id || (jsonData.user && jsonData.user.id);",
+              "    pm.collectionVariables.set(\"rahul_id\", userId);",
+              "    pm.collectionVariables.set(\"rahul_token\", jsonData.api_token);",
               "});"
             ],
             "type": "text/javascript"
@@ -148,8 +179,12 @@
         },
         "url": {
           "raw": "{{base_url}}/users",
-          "host": ["{{base_url}}"],
-          "path": ["users"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users"
+          ]
         }
       },
       "event": [
@@ -160,7 +195,9 @@
               "pm.test(\"Status code is 201\", function () {",
               "    pm.response.to.have.status(201);",
               "    var jsonData = pm.response.json();",
-              "    pm.collectionVariables.set(\"ankit_id\", jsonData.id);",
+              "    var userId = jsonData.id || (jsonData.user && jsonData.user.id);",
+              "    pm.collectionVariables.set(\"ankit_id\", userId);",
+              "    pm.collectionVariables.set(\"ankit_token\", jsonData.api_token);",
               "});"
             ],
             "type": "text/javascript"
@@ -172,11 +209,20 @@
       "name": "5. List Users",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
         "url": {
           "raw": "{{base_url}}/users?limit=20",
-          "host": ["{{base_url}}"],
-          "path": ["users"],
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users"
+          ],
           "query": [
             {
               "key": "limit",
@@ -193,7 +239,7 @@
               "pm.test(\"Status code is 200\", function () {",
               "    pm.response.to.have.status(200);",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.items.length).to.be.at.least(3);",
+              "    pm.expect(jsonData.items.length).to.be.at.least(1);",
               "});"
             ],
             "type": "text/javascript"
@@ -209,6 +255,10 @@
           {
             "key": "Content-Type",
             "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
           }
         ],
         "body": {
@@ -217,8 +267,12 @@
         },
         "url": {
           "raw": "{{base_url}}/groups",
-          "host": ["{{base_url}}"],
-          "path": ["groups"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups"
+          ]
         }
       },
       "event": [
@@ -238,47 +292,17 @@
       ]
     },
     {
-      "name": "7. Add Member - Mohit",
+      "name": "7. Add Member - Rahul",
       "request": {
         "method": "POST",
         "header": [
           {
             "key": "Content-Type",
             "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"user_id\": \"{{mohit_id}}\"\n}"
-        },
-        "url": {
-          "raw": "{{base_url}}/groups/{{group_id}}/members",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "members"]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test(\"Status code is 201\", function () {",
-              "    pm.response.to.have.status(201);",
-              "});"
-            ],
-            "type": "text/javascript"
-          }
-        }
-      ]
-    },
-    {
-      "name": "8. Add Member - Rahul",
-      "request": {
-        "method": "POST",
-        "header": [
+          },
           {
-            "key": "Content-Type",
-            "value": "application/json"
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
           }
         ],
         "body": {
@@ -287,8 +311,14 @@
         },
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/members",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "members"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "members"
+          ]
         }
       },
       "event": [
@@ -306,13 +336,17 @@
       ]
     },
     {
-      "name": "9. Add Member - Ankit",
+      "name": "8. Add Member - Ankit",
       "request": {
         "method": "POST",
         "header": [
           {
             "key": "Content-Type",
             "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
           }
         ],
         "body": {
@@ -321,8 +355,14 @@
         },
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/members",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "members"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "members"
+          ]
         }
       },
       "event": [
@@ -332,6 +372,52 @@
             "exec": [
               "pm.test(\"Status code is 201\", function () {",
               "    pm.response.to.have.status(201);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Verify Creator Auto-Membership (409 Duplicate)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": \"{{mohit_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/groups/{{group_id}}/members",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "members"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 409 ALREADY_MEMBER\", function () {",
+              "    pm.response.to.have.status(409);",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error.code).to.eql(\"ALREADY_MEMBER\");",
               "});"
             ],
             "type": "text/javascript"
@@ -343,11 +429,22 @@
       "name": "10. List Group Members",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/members",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "members"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "members"
+          ]
         }
       },
       "event": [
@@ -378,6 +475,10 @@
           {
             "key": "Idempotency-Key",
             "value": "postman_exp_dinner_1200"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
           }
         ],
         "body": {
@@ -386,8 +487,14 @@
         },
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/expenses",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "expenses"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "expenses"
+          ]
         }
       },
       "event": [
@@ -419,6 +526,10 @@
           {
             "key": "Idempotency-Key",
             "value": "postman_exp_cab_600"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{rahul_token}}"
           }
         ],
         "body": {
@@ -427,8 +538,14 @@
         },
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/expenses",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "expenses"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "expenses"
+          ]
         }
       },
       "event": [
@@ -451,11 +568,22 @@
       "name": "13. List Group Expenses",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/expenses?limit=10",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "expenses"],
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "expenses"
+          ],
           "query": [
             {
               "key": "limit",
@@ -484,11 +612,22 @@
       "name": "14. Get Group Balances (Brief & ID formats)",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/balances",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "balances"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "balances"
+          ]
         }
       },
       "event": [
@@ -513,11 +652,22 @@
       "name": "15. Get Settle-Up Suggestions (Greedy Minimal)",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/settle-up",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "settle-up"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "settle-up"
+          ]
         }
       },
       "event": [
@@ -551,6 +701,10 @@
           {
             "key": "Idempotency-Key",
             "value": "postman_settle_ankit_mohit_600"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{ankit_token}}"
           }
         ],
         "body": {
@@ -559,8 +713,14 @@
         },
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/settlements",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "settlements"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "settlements"
+          ]
         }
       },
       "event": [
@@ -583,11 +743,22 @@
       "name": "17. Verify Balances After Settlement (All Net Zero)",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/balances",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "balances"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "balances"
+          ]
         }
       },
       "event": [
@@ -612,11 +783,22 @@
       "name": "18. List Group Settlements",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
         "url": {
           "raw": "{{base_url}}/groups/{{group_id}}/settlements",
-          "host": ["{{base_url}}"],
-          "path": ["groups", "{{group_id}}", "settlements"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "groups",
+            "{{group_id}}",
+            "settlements"
+          ]
         }
       },
       "event": [
@@ -628,6 +810,46 @@
               "    pm.response.to.have.status(200);",
               "    var jsonData = pm.response.json();",
               "    pm.expect(jsonData.items.length).to.eql(1);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "19. Token Rotation (Mohit rotates token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{mohit_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/users/me/token/rotate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users",
+            "me",
+            "token",
+            "rotate"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 and returns new token\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.api_token).to.be.a(\"string\");",
+              "    pm.collectionVariables.set(\"mohit_token\", jsonData.api_token);",
               "});"
             ],
             "type": "text/javascript"

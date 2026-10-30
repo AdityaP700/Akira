@@ -30,6 +30,12 @@ def client_and_session() -> tuple[TestClient, Session]:
 
     app.dependency_overrides[get_db] = override_get_db
     client = TestClient(app)
+
+    # Setup default authenticated actor for baseline tests
+    res = client.post("/users", json={"name": "Setup Actor"})
+    token = res.json()["api_token"]
+    client.headers["Authorization"] = f"Bearer {token}"
+
     test_session = session_factory()
     try:
         yield client, test_session
@@ -46,6 +52,7 @@ def test_create_user_happy_path(client_and_session: tuple[TestClient, Session]) 
     assert data["name"] == "Mohit"
     assert data["id"].startswith("usr_")
     assert "created_at" in data
+    assert "api_token" in data
 
 
 def test_create_user_validation_errors(client_and_session: tuple[TestClient, Session]) -> None:
@@ -70,12 +77,18 @@ def test_create_user_validation_errors(client_and_session: tuple[TestClient, Ses
 def test_users_pagination(client_and_session: tuple[TestClient, Session]) -> None:
     client, _ = client_and_session
 
-    # Create 25 users
+    # Create a group so all created users share a group with the caller
+    g_res = client.post("/groups", json={"name": "Pagination Group"})
+    group_id = g_res.json()["id"]
+
+    # Create 25 users and add them to group
     created_ids = []
     for i in range(25):
         res = client.post("/users", json={"name": f"User_{i:02d}"})
         assert res.status_code == 201
-        created_ids.append(res.json()["id"])
+        uid = res.json()["id"]
+        created_ids.append(uid)
+        client.post(f"/groups/{group_id}/members", json={"user_id": uid})
 
     # Page 1: limit=10
     res1 = client.get("/users?limit=10")
@@ -91,22 +104,23 @@ def test_users_pagination(client_and_session: tuple[TestClient, Session]) -> Non
     assert len(page2["items"]) == 10
     assert page2["next_cursor"] is not None
 
-    # Page 3: limit=10
+    # Page 3: limit=10 (remaining items: 25 created + 1 Setup Actor = 26 total items)
     res3 = client.get(f"/users?limit=10&cursor={page2['next_cursor']}")
     assert res3.status_code == 200
     page3 = res3.json()
-    assert len(page3["items"]) == 5
+    assert len(page3["items"]) == 6
     assert page3["next_cursor"] is None
 
-    # Verify all items returned exactly once
+    # Verify all created items returned exactly once
     all_returned_ids = (
         [u["id"] for u in page1["items"]]
         + [u["id"] for u in page2["items"]]
         + [u["id"] for u in page3["items"]]
     )
-    assert len(all_returned_ids) == 25
-    assert len(set(all_returned_ids)) == 25
-    assert set(all_returned_ids) == set(created_ids)
+    assert len(all_returned_ids) == 26
+    assert len(set(all_returned_ids)) == 26
+    for cid in created_ids:
+        assert cid in all_returned_ids
 
     # Bad cursor -> 422
     res_bad = client.get("/users?cursor=invalid_garbage_base64_or_data")
@@ -141,27 +155,26 @@ def test_add_and_list_group_members(client_and_session: tuple[TestClient, Sessio
 
     u1 = client.post("/users", json={"name": "Mohit"}).json()
     u2 = client.post("/users", json={"name": "Rahul"}).json()
+
+    # Mohit creates Flatmates group using his own token
+    client.headers["Authorization"] = f"Bearer {u1['api_token']}"
     g = client.post("/groups", json={"name": "Flatmates"}).json()
 
-    # Add member 1
-    res = client.post(f"/groups/{g['id']}/members", json={"user_id": u1["id"]})
+    # Mohit adds Rahul
+    res = client.post(f"/groups/{g['id']}/members", json={"user_id": u2["id"]})
     assert res.status_code == 201
     data = res.json()
     assert data["group_id"] == g["id"]
-    assert data["user_id"] == u1["id"]
-    assert data["name"] == "Mohit"
+    assert data["user_id"] == u2["id"]
+    assert data["name"] == "Rahul"
     assert "joined_at" in data
 
-    # Add member 2
-    res = client.post(f"/groups/{g['id']}/members", json={"user_id": u2["id"]})
-    assert res.status_code == 201
-
     # Duplicate member -> 409 ALREADY_MEMBER
-    dup = client.post(f"/groups/{g['id']}/members", json={"user_id": u1["id"]})
+    dup = client.post(f"/groups/{g['id']}/members", json={"user_id": u2["id"]})
     assert dup.status_code == 409
     assert dup.json()["error"]["code"] == "ALREADY_MEMBER"
 
-    # List members
+    # List members -> Mohit (creator) + Rahul = 2
     members_res = client.get(f"/groups/{g['id']}/members")
     assert members_res.status_code == 200
     members = members_res.json()

@@ -43,16 +43,20 @@ def client_and_session() -> tuple[TestClient, Session]:
 def _setup_group(
     client: TestClient, group_name: str, member_names: list[str]
 ) -> tuple[str, list[dict]]:
-    g_res = client.post("/groups", json={"name": group_name})
-    assert g_res.status_code == 201
-    group_id = g_res.json()["id"]
-
     users = []
     for name in member_names:
         u_res = client.post("/users", json={"name": name})
         assert u_res.status_code == 201
         u_data = u_res.json()
         users.append(u_data)
+
+    creator = users[0]
+    client.headers["Authorization"] = f"Bearer {creator['api_token']}"
+    g_res = client.post("/groups", json={"name": group_name})
+    assert g_res.status_code == 201
+    group_id = g_res.json()["id"]
+
+    for u_data in users[1:]:
         m_res = client.post(f"/groups/{group_id}/members", json={"user_id": u_data["id"]})
         assert m_res.status_code == 201
 
@@ -254,8 +258,8 @@ def test_six_users_transfers_bound(client_and_session: tuple[TestClient, Session
 def test_get_all_balances_alias(client_and_session: tuple[TestClient, Session]) -> None:
     client, _ = client_and_session
     g1, u_g1 = _setup_group(client, "Trip 1", ["A", "B"])
-    g2, u_g2 = _setup_group(client, "Trip 2", ["C", "D"])
 
+    # Record expense in Trip 1 while authenticated as A
     client.post(
         f"/groups/{g1}/expenses",
         json={
@@ -265,6 +269,12 @@ def test_get_all_balances_alias(client_and_session: tuple[TestClient, Session]) 
             "split_type": "EQUAL",
         },
     )
+
+    g2, u_g2 = _setup_group(client, "Trip 2", ["C", "D"])
+
+    # Add A to Trip 2 so A is a member of both groups
+    client.post(f"/groups/{g2}/members", json={"user_id": u_g1[0]["id"]})
+
     client.post(
         f"/groups/{g2}/expenses",
         json={
@@ -275,6 +285,8 @@ def test_get_all_balances_alias(client_and_session: tuple[TestClient, Session]) 
         },
     )
 
+    # Authenticate as A (member of both Trip 1 and Trip 2)
+    client.headers["Authorization"] = f"Bearer {u_g1[0]['api_token']}"
     res = client.get("/balances")
     assert res.status_code == 200
     data = res.json()

@@ -12,6 +12,7 @@ from app.domain.money import format_paise
 from app.domain.settle import simplify
 from app.repositories import groups as groups_repo
 from app.repositories.models import Expense, ExpenseShare, Group, Settlement, User
+from app.security.guards import require_member
 
 
 def _calculate_group_balances(session: Session, group: Group) -> dict[str, Any]:
@@ -81,19 +82,29 @@ def _calculate_group_balances(session: Session, group: Group) -> dict[str, Any]:
     }
 
 
-def get_group_balances(session: Session, group_public_id: str) -> dict[str, Any]:
+def get_group_balances(
+    session: Session, group_public_id: str, actor: User | None = None
+) -> dict[str, Any]:
     """Retrieve derived balances for a specific group."""
     with session.begin():
-        group = groups_repo.get_by_public_id(session, group_public_id)
-        if group is None:
-            raise NotFoundError(f"Group '{group_public_id}' not found")
+        if actor is not None:
+            group = require_member(session, group_public_id, actor)
+        else:
+            raw_group = groups_repo.get_by_public_id(session, group_public_id)
+            if raw_group is None:
+                raise NotFoundError(f"Group '{group_public_id}' not found")
+            group = raw_group
         return _calculate_group_balances(session, group)
 
 
-def get_all_group_balances(session: Session) -> list[dict[str, Any]]:
-    """Retrieve derived balances across all groups (brief-compatible)."""
+def get_all_group_balances(session: Session, actor: User | None = None) -> list[dict[str, Any]]:
+    """Retrieve derived balances for the actor's groups (or all if actor is None)."""
     with session.begin():
-        groups = list(session.scalars(select(Group).order_by(Group.id.asc())).all())
+        if actor is not None:
+            groups = groups_repo.list_user_groups(session, actor.id)
+        else:
+            groups = list(session.scalars(select(Group).order_by(Group.id.asc())).all())
+
         results = []
         for g in groups:
             data = _calculate_group_balances(session, g)
@@ -108,12 +119,18 @@ def get_all_group_balances(session: Session) -> list[dict[str, Any]]:
         return results
 
 
-def get_settle_up_suggestions(session: Session, group_public_id: str) -> dict[str, Any]:
+def get_settle_up_suggestions(
+    session: Session, group_public_id: str, actor: User | None = None
+) -> dict[str, Any]:
     """Greedy debt simplification to suggest minimum transfers."""
     with session.begin():
-        group = groups_repo.get_by_public_id(session, group_public_id)
-        if group is None:
-            raise NotFoundError(f"Group '{group_public_id}' not found")
+        if actor is not None:
+            group = require_member(session, group_public_id, actor)
+        else:
+            raw_group = groups_repo.get_by_public_id(session, group_public_id)
+            if raw_group is None:
+                raise NotFoundError(f"Group '{group_public_id}' not found")
+            group = raw_group
 
         expenses = list(session.scalars(select(Expense).where(Expense.group_id == group.id)).all())
         shares = list(

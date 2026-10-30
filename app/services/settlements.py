@@ -23,12 +23,14 @@ from app.repositories import ledger as ledger_repo
 from app.repositories import settlements as settlements_repo
 from app.repositories import users as users_repo
 from app.repositories.models import Expense, ExpenseShare, Settlement, User
+from app.security.guards import require_member, require_member_and_lock
 
 
 def record_settlement(
     session: Session,
     group_public_id: str,
     payload: SettlementIn,
+    actor: User | None = None,
     idempotency_key: str | None = None,
     http_method: str = "POST",
     http_path: str = "/groups/{group_id}/settlements",
@@ -39,7 +41,7 @@ def record_settlement(
     Transaction flow:
     1. with session.begin():
     2. Check idempotency record if key present.
-    3. Lock group row FOR UPDATE.
+    3. Lock group row FOR UPDATE and check actor membership (OWASP API1).
     4. Validate from_user and to_user are distinct group members.
     5. Calculate current pairwise debt; assert amount <= debt (no overpayment).
     6. Insert settlement row with status CONFIRMED.
@@ -65,9 +67,13 @@ def record_settlement(
                     return existing.response_body, existing.response_status or 201
 
         # 1. Lock group FOR UPDATE
-        group = groups_repo.lock_for_update_by_public_id(session, group_public_id)
-        if group is None:
-            raise NotFoundError(f"Group '{group_public_id}' not found")
+        if actor is not None:
+            group = require_member_and_lock(session, group_public_id, actor)
+        else:
+            raw_group = groups_repo.lock_for_update_by_public_id(session, group_public_id)
+            if raw_group is None:
+                raise NotFoundError(f"Group '{group_public_id}' not found")
+            group = raw_group
 
         # 2. Validate participants
         debtor = users_repo.get_by_public_id(session, payload.from_user)
@@ -175,14 +181,19 @@ def record_settlement(
 def list_settlements(
     session: Session,
     group_public_id: str,
+    actor: User | None = None,
     limit: int = 20,
     cursor: str | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
     """List settlements for a group using keyset pagination."""
     with session.begin():
-        group = groups_repo.get_by_public_id(session, group_public_id)
-        if group is None:
-            raise NotFoundError(f"Group '{group_public_id}' not found")
+        if actor is not None:
+            group = require_member(session, group_public_id, actor)
+        else:
+            raw_group = groups_repo.get_by_public_id(session, group_public_id)
+            if raw_group is None:
+                raise NotFoundError(f"Group '{group_public_id}' not found")
+            group = raw_group
 
         stmt = select(Settlement).where(Settlement.group_id == group.id)
 

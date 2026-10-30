@@ -24,6 +24,52 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## 981900d — A1 — Authentication and object-level authorisation (OWASP API1/API2/API5)
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented bank-grade authentication with Bearer tokens and strict object-level authorization (BOLA prevention). Tokens use 32-byte URL-safe randomness prefixed with `est_` and are stored as SHA-256 hashes in `users.token_hash`. All group endpoints require caller membership, returning an identical 404 `NOT_FOUND` on non-membership to eliminate group enumeration vulnerabilities.
+**Files changed:**
+- `alembic/versions/002_user_token_hash.py`: Additive migration adding unique nullable `token_hash` column to `users`.
+- `app/repositories/models.py`: Added `token_hash` mapped column to `User` model.
+- `app/security/auth.py`: Token generator (`generate_api_token`), SHA-256 hasher (`hash_token`), and constant-time authentication (`authenticate_token` using `hmac.compare_digest`).
+- `app/security/guards.py`: Object-level authorization guards (`require_member`, `require_member_and_lock`) returning 404 `NOT_FOUND` for non-members.
+- `app/api/deps.py`: `get_actor` dependency parsing Bearer tokens, expunging actor, and issuing session rollback for transaction safety.
+- `app/api/schemas/users.py`: `UserRegistrationOut` returning user info and one-time `api_token` with backward-compatible computed fields; added `TokenRotateOut`.
+- `app/services/users.py`: Transactional user registration returning token, token rotation use case, and shared-group user listing.
+- `app/services/groups.py`: Auto-enrolling group creator as first member; member addition and listing restricted to members.
+- `app/services/expenses.py`: Member verification for payer and caller on creation and listing.
+- `app/services/balances.py`: Group balances and settle-up scoped to members; global balances scoped to caller's groups.
+- `app/services/settlements.py`: Settlement repayment and listing scoped to group members.
+- `app/api/routers/`: Protected all group routes with `actor: Annotated[User, Depends(get_actor)]`; added `POST /users/me/token/rotate`.
+- `app/core/errors.py`: Added `UnauthenticatedError` (HTTP 401 `UNAUTHENTICATED`).
+- `tests/api/test_auth_and_bola.py`: 16 comprehensive tests verifying 401 unauthenticated, DB hash cannot authenticate, token rotation, creator auto-membership, member-only additions, and parametrised BOLA suite across all 8 group routes.
+- `scripts/seed_goa_trip.py`: Seed script generating and printing API tokens for Mohit, Rahul, Ankit.
+- `postman/expense-sharing.postman_collection.json`: 19-step collection with Bearer token headers, dynamic token extraction, and token rotation.
+- `docs/API.md`: Updated API reference with authentication details, token rotation endpoint, and 401 error reference.
+**Behaviour before → after:**
+- Callers must register via `POST /users` to receive an `api_token` (prefixed with `est_`).
+- All requests except `POST /users` and `GET /health` require `Authorization: Bearer <token>`. Missing or invalid tokens return 401 `UNAUTHENTICATED`.
+- Non-members calling any group endpoint receive 404 `NOT_FOUND` ("Group '{id}' not found"), identical to non-existent groups.
+- Group creators are automatically enrolled as the first member; only members can add new members.
+- `GET /users` only returns users sharing groups with the caller (OWASP API3 data minimisation).
+- `GET /balances` only lists groups the caller belongs to.
+**How to verify:**
+1. `pytest -q --cov=app` → 119 passed (94% coverage).
+2. `ruff check .` && `ruff format --check .` && `mypy app/domain app/services` → all clean.
+3. `$env:DATABASE_URL="sqlite:///./dev.db"; python scripts/seed_goa_trip.py` → prints generated tokens and balances.
+**Risks / things to look at closely:**
+- `get_actor` expunges the user from the dependency session so services can invoke `with session.begin():` cleanly without nested transaction conflicts.
+- Non-members receive 404 rather than 403 to prevent group ID enumeration (OWASP API1).
+- Tokens are stored only as SHA-256 hashes in the database; plaintext tokens cannot be retrieved once issued.
+**Expected follow-up:**
+- Proceed to Phase A2: Edge hardening, rate limiting, and structured observability (`prompts/advanced/A2_edge_hardening_and_observability.md`).
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 069a907 — B6 — Baseline release: docs, seed, Postman, and requirement audit
 **Author:** Antigravity · **Sub-agents used:** Requirement Auditor (`bb26ccca-9685-415c-824d-e04cb060ecff`: full codebase verification against brief & PROJECT_PLAN.md §1-§8 → compliance matrix)
 **Summary:** Finalized the baseline release (v1). Produced idempotent seeding script for the Goa Trip dataset, created complete sequential Postman collection with dynamic variable extraction, rewrote `README.md` to reflect actual architecture and design decisions, added Section 4 Error Codes Reference to `docs/API.md`, and completed an automated 10-point requirement audit verifying 100% compliance with 103 passing tests.

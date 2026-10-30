@@ -46,6 +46,9 @@ class User(Base):
         String(32), unique=True, nullable=False, default=new_user_id
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    token_hash: Mapped[str | None] = mapped_column(
+        String(64), unique=True, nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

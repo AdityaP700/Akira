@@ -7,29 +7,33 @@ from app.core.errors import ConflictError, NotFoundError
 from app.repositories import groups as groups_repo
 from app.repositories import users as users_repo
 from app.repositories.models import Group, GroupMember, User
+from app.security.guards import require_member
 
 
-def create_group(session: Session, name: str) -> Group:
-    """Create a new group within a transaction."""
+def create_group(session: Session, name: str, creator: User) -> Group:
+    """Create a new group within a transaction and make the creator its first member."""
     with session.begin():
-        return groups_repo.create(session, name)
+        group = groups_repo.create(session, name)
+        groups_repo.add_member(session, group.id, creator.id)
+        return group
 
 
 def add_member(
     session: Session,
     group_public_id: str,
     user_public_id: str,
+    actor: User,
 ) -> tuple[GroupMember, str]:
     """Add a user to a group, returning the member record and user display name.
 
+    Only existing group members can add new members.
     Raises:
-        NotFoundError: If group or user does not exist.
+        NotFoundError: If group does not exist or caller is not a member (OWASP API1).
+        NotFoundError: If user to add does not exist.
         ConflictError: If user is already a member.
     """
     with session.begin():
-        group = groups_repo.get_by_public_id(session, group_public_id)
-        if group is None:
-            raise NotFoundError(f"Group '{group_public_id}' not found")
+        group = require_member(session, group_public_id, actor)
 
         user = users_repo.get_by_public_id(session, user_public_id)
         if user is None:
@@ -48,16 +52,15 @@ def add_member(
 def list_members(
     session: Session,
     group_public_id: str,
+    actor: User,
 ) -> list[tuple[GroupMember, str, str]]:
     """List all members of a group with user display names and public IDs.
 
     Raises:
-        NotFoundError: If group does not exist.
+        NotFoundError: If group does not exist or caller is not a member (OWASP API1).
     """
     with session.begin():
-        group = groups_repo.get_by_public_id(session, group_public_id)
-        if group is None:
-            raise NotFoundError(f"Group '{group_public_id}' not found")
+        group = require_member(session, group_public_id, actor)
 
         stmt = (
             select(GroupMember, User.name, User.public_id)

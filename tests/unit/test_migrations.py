@@ -35,6 +35,10 @@ def test_alembic_upgrade_and_downgrade(tmp_path: Path) -> None:
     }
     assert expected_tables.issubset(table_names)
 
+    # Verify token_hash column added by 002_user_token_hash
+    columns = {col["name"] for col in inspector.get_columns("users")}
+    assert "token_hash" in columns
+
     # Run downgrade back to base
     command.downgrade(alembic_cfg, "base")
 

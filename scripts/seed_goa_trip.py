@@ -18,6 +18,7 @@ from app.core.db import Base, SessionLocal, engine
 from app.repositories import groups as groups_repo
 from app.repositories import users as users_repo
 from app.repositories.models import Expense, Group, User
+from app.security.auth import generate_api_token, hash_token
 from app.services import balances as balances_service
 from app.services import expenses as expenses_service
 
@@ -38,11 +39,20 @@ def seed() -> None:
             with session.begin():
                 u = session.scalar(select(User).where(User.name == name))
                 if u is None:
-                    u = users_repo.create(session, name)
+                    raw_token = generate_api_token()
+                    u = users_repo.create(session, name, token_hash=hash_token(raw_token))
                     session.flush()
-                    print(f"[+] Created User: {name} ({u.public_id})")
+                    print(f"[+] Created User: {name} ({u.public_id}) | Token: {raw_token}")
                 else:
-                    print(f"[*] Found Existing User: {name} ({u.public_id})")
+                    if u.token_hash is None:
+                        raw_token = generate_api_token()
+                        u.token_hash = hash_token(raw_token)
+                        session.flush()
+                        print(
+                            f"[*] Found Existing User: {name} ({u.public_id}) | Token: {raw_token}"
+                        )
+                    else:
+                        print(f"[*] Found Existing User: {name} ({u.public_id})")
                 user_ids[name] = (u.id, u.public_id)
 
     # 2. Idempotently create group: "Goa Trip"

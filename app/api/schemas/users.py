@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 
 class UserIn(BaseModel):
@@ -23,6 +23,30 @@ class UserOut(BaseModel):
     id: str = Field(..., description="Opaque public user ID (usr_...)")
     name: str
     created_at: datetime
+
+
+class UserRegistrationOut(BaseModel):
+    user: UserOut
+    api_token: str = Field(..., description="API bearer token, shown only once")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def id(self) -> str:
+        return self.user.id
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def name(self) -> str:
+        return self.user.name
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def created_at(self) -> datetime:
+        return self.user.created_at
+
+
+class TokenRotateOut(BaseModel):
+    api_token: str = Field(..., description="New API bearer token")
 
 
 class UserListOut(BaseModel):

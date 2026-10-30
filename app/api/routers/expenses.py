@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_actor, get_db
 from app.api.schemas.expenses import ExpenseIn, ExpenseListOut, ExpenseOut
 from app.core.errors import ValidationError
+from app.repositories.models import User
 from app.services import expenses as expenses_service
 
 router = APIRouter(tags=["expenses"])
@@ -34,7 +35,7 @@ def create_group_expense(
     payload: ExpenseIn,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    actor: Annotated[Any, Depends(get_actor)] = None,
+    actor: Annotated[User, Depends(get_actor)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Any:
     _validate_idempotency_key(idempotency_key)
@@ -43,6 +44,7 @@ def create_group_expense(
         session=db,
         group_public_id=group_id,
         payload=payload,
+        actor=actor,
         idempotency_key=idempotency_key,
         http_method=request.method,
         http_path=f"/groups/{group_id}/expenses",
@@ -62,7 +64,7 @@ def create_expense_alias(
     payload: ExpenseIn,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    actor: Annotated[Any, Depends(get_actor)] = None,
+    actor: Annotated[User, Depends(get_actor)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Any:
     _validate_idempotency_key(idempotency_key)
@@ -74,6 +76,7 @@ def create_expense_alias(
         session=db,
         group_public_id=payload.group_id,
         payload=payload,
+        actor=actor,
         idempotency_key=idempotency_key,
         http_method=request.method,
         http_path="/expenses",
@@ -92,13 +95,14 @@ def create_expense_alias(
 def list_group_expenses(
     group_id: str,
     db: Annotated[Session, Depends(get_db)],
-    actor: Annotated[Any, Depends(get_actor)] = None,
+    actor: Annotated[User, Depends(get_actor)],
     limit: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 20,
     cursor: Annotated[str | None, Query(description="Keyset pagination cursor")] = None,
 ) -> ExpenseListOut:
     items, next_cursor = expenses_service.list_expenses(
         session=db,
         group_public_id=group_id,
+        actor=actor,
         limit=limit,
         cursor=cursor,
     )

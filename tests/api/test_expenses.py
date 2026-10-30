@@ -44,18 +44,22 @@ def client_and_session() -> tuple[TestClient, Session]:
 def _setup_group_with_members(
     client: TestClient, member_names: list[str]
 ) -> tuple[str, list[dict]]:
-    # Create group
-    g_res = client.post("/groups", json={"name": "Goa Trip"})
-    assert g_res.status_code == 201
-    group_id = g_res.json()["id"]
-
     users = []
     for name in member_names:
         u_res = client.post("/users", json={"name": name})
         assert u_res.status_code == 201
         u_data = u_res.json()
         users.append(u_data)
-        # Add to group
+
+    # First user creates group and becomes first member
+    creator = users[0]
+    client.headers["Authorization"] = f"Bearer {creator['api_token']}"
+    g_res = client.post("/groups", json={"name": "Goa Trip"})
+    assert g_res.status_code == 201
+    group_id = g_res.json()["id"]
+
+    # Creator adds remaining members
+    for u_data in users[1:]:
         m_res = client.post(f"/groups/{group_id}/members", json={"user_id": u_data["id"]})
         assert m_res.status_code == 201
 

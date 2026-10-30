@@ -19,6 +19,32 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-30 19:20 — A1 — Authentication and object-level authorisation (OWASP API1/API2/API5)
+**Status:** done
+**What changed:**
+- Added Alembic migration `002_user_token_hash.py` introducing unique `token_hash` VARCHAR(64) on `users`.
+- Implemented `app/security/auth.py` for token generation (`est_` prefix + 32-byte URL-safe entropy), constant-time verification with SHA-256 and `hmac.compare_digest`.
+- Implemented `app/security/guards.py` (`require_member`, `require_member_and_lock`) enforcing OWASP API1 (BOLA) protections returning 404 `NOT_FOUND` to prevent group ID enumeration.
+- Wired FastAPI `get_actor` dependency in `app/api/deps.py` extracting Bearer tokens, expunging actors and closing read transactions for clean use-case isolation.
+- Protected all group endpoints and updated services: creator is auto-added as first member, only members can add members, `GET /users` scopes to shared-group users (OWASP API3 data minimisation), `GET /balances` scopes to actor's groups, and added `POST /users/me/token/rotate`.
+- Added comprehensive test suite `tests/api/test_auth_and_bola.py` (16 tests verifying 401 unauthenticated, DB hash cannot authenticate, token rotation, creator auto-membership, only members add members, and parametrised BOLA suite across all 8 group routes).
+- Updated `scripts/seed_goa_trip.py`, `postman/expense-sharing.postman_collection.json` (19 steps), and `docs/API.md` with Bearer auth headers, token variables, and `UNAUTHENTICATED` error code.
+**Why:**
+- Implement bank-grade authentication and object-level authorisation preventing OWASP Top 10 API vulnerabilities (API1 BOLA, API2 Broken Authentication, API3 Excessive Data Exposure, API5 Broken Object Property Level Authorisation) per PROJECT_PLAN.md §2-3, GUARDRAILS.md (B, E), and prompts/advanced/A1_auth_and_object_authorization.md.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` → 119 passed, 0 failed (94% total coverage, 100% security/guards); `make lint` → ok (ruff & mypy strict clean)
+**Decisions:**
+- Non-members accessing group routes receive identical 404 `NOT_FOUND` ("Group '{id}' not found") rather than 403 Forbidden to prevent group existence enumeration.
+- Dependency `get_actor` expunges actor and issues `session.rollback()` so that service methods can cleanly own their own `with session.begin():` transactions without nested transaction conflicts.
+- `UserRegistrationOut` exposes computed fields for `id`, `name`, `created_at` at the root while returning `user` and `api_token` for seamless backwards compatibility.
+**Proposed (not built):**
+- None.
+**Commit:** 981900d `feat(security): bearer tokens and membership authorisation`
+**Next:** Phase A2 — Edge hardening, rate limiting, and structured observability (`prompts/advanced/A2_edge_hardening_and_observability.md`).
+
+---
+
 ## 2026-10-30 18:20 — B6 — Baseline release: docs, seed, Postman, and requirement audit
 **Status:** done
 **What changed:**

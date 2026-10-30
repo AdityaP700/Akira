@@ -26,6 +26,15 @@ class NotFoundError(AppError):
         super().__init__(code="NOT_FOUND", message=message, status_code=404)
 
 
+class UnauthenticatedError(AppError):
+    def __init__(
+        self,
+        message: str = "Missing or invalid authentication token",
+        code: str = "UNAUTHENTICATED",
+    ) -> None:
+        super().__init__(code=code, message=message, status_code=401)
+
+
 class ConflictError(AppError):
     def __init__(self, code: str = "ALREADY_MEMBER", message: str = "Resource conflict") -> None:
         super().__init__(code=code, message=message, status_code=409)

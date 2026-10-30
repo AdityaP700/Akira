@@ -10,6 +10,20 @@ This document provides the OpenAPI-compliant REST API documentation for the Akir
 - **Identifiers:** External public resources use opaque IDs with prefix (`usr_`, `grp_`, `exp_`, `stl_`).
 - **Request Models:** Enforce `extra="forbid"`. Unrecognized query parameters or JSON fields return `422 Unprocessable Content`.
 
+### Authentication & Object-Level Authorisation (OWASP API1/API2/API5)
+
+- **Authentication Scheme:** `Authorization: Bearer <api_token>`
+- **Token Format:** Cryptographically secure 32-byte tokens prefixed with `est_` (e.g. `est_...`). Stored as SHA-256 hashes in the database; plaintext tokens are displayed only once upon generation.
+- **Token Delivery:** Generated and returned on user registration (`POST /users`). Token rotation supported via `POST /users/me/token/rotate`.
+- **Public Routes:** `POST /users` (registration) and `GET /health` (probes) are public. All other endpoints require a valid Bearer token.
+- **BOLA Protection (Broken Object-Level Authorisation):**
+  - Group-scoped endpoints strictly require caller membership.
+  - Non-members receive an identical **404 `NOT_FOUND`** (`{"error": {"code": "NOT_FOUND", "message": "Group 'grp_...' not found"}}`), preventing group ID enumeration attacks.
+- **Data Minimisation (OWASP API3):**
+  - `GET /users` returns only users who share at least one group with the authenticated caller (plus the caller themselves).
+  - `GET /balances` returns only groups where the caller is an active member.
+- **Membership Flow:** Creating a group automatically enrolls the creator as its first member. Only existing members may add new members.
+
 ### Uniform Error Response Format
 
 All error responses return a standardized JSON envelope with the active request trace ID:
@@ -28,22 +42,23 @@ All error responses return a standardized JSON envelope with the active request 
 
 ## 2. Endpoints Summary
 
-| Method | Path | Request Body | Status | Description |
-|---|---|---|---|---|
-| `GET` | `/health` | None | 200 / 503 | Database connectivity health check |
-| `POST` | `/users` | `{"name": "Mohit"}` | 201 | Register a new user |
-| `GET` | `/users` | None (Query: `limit`, `cursor`) | 200 | Keyset paginated user list |
-| `POST` | `/groups` | `{"name": "Goa Trip"}` | 201 | Create a new expense group |
-| `POST` | `/groups/{group_id}/members` | `{"user_id": "usr_..."}` | 201 | Add a user to a group |
-| `GET` | `/groups/{group_id}/members` | None | 200 | List all members in a group |
-| `POST` | `/groups/{group_id}/expenses` | `{"paid_by", "amount", "description", "split_type", ...}` | 201 | Atomic expense creation with shares & ledger |
-| `POST` | `/expenses` | `{"group_id", "paid_by", "amount", ...}` | 201 | Brief-compatible alias for expense creation |
-| `GET` | `/groups/{group_id}/expenses` | None (Query: `limit`, `cursor`) | 200 | Keyset paginated group expenses list |
-| `GET` | `/groups/{group_id}/balances` | None | 200 | Derived pairwise and net balances |
-| `GET` | `/balances` | None | 200 | Derived balances across all groups |
-| `GET` | `/groups/{group_id}/settle-up` | None | 200 | Greedy debt simplification suggestions |
-| `POST` | `/groups/{group_id}/settlements` | `{"from_user", "to_user", "amount", "method"}` | 201 | Record repayment with ledger entry |
-| `GET` | `/groups/{group_id}/settlements` | None (Query: `limit`, `cursor`) | 200 | Keyset paginated settlements list |
+| Method | Path | Auth Required | Request Body | Status | Description |
+|---|---|---|---|---|---|
+| `GET` | `/health` | No | None | 200 / 503 | Database connectivity health check |
+| `POST` | `/users` | No | `{"name": "Mohit"}` | 201 | Register a new user & receive API token |
+| `POST` | `/users/me/token/rotate` | Bearer Token | None | 200 | Invalidate old token and issue new API token |
+| `GET` | `/users` | Bearer Token | None (Query: `limit`, `cursor`) | 200 | Keyset paginated shared users list |
+| `POST` | `/groups` | Bearer Token | `{"name": "Goa Trip"}` | 201 | Create a group (caller is auto-enrolled as member) |
+| `POST` | `/groups/{group_id}/members` | Bearer Token (Member) | `{"user_id": "usr_..."}` | 201 | Add a user to a group |
+| `GET` | `/groups/{group_id}/members` | Bearer Token (Member) | None | 200 | List all members in a group |
+| `POST` | `/groups/{group_id}/expenses` | Bearer Token (Member) | `{"paid_by", "amount", "description", "split_type", ...}` | 201 | Atomic expense creation with shares & ledger |
+| `POST` | `/expenses` | Bearer Token (Member) | `{"group_id", "paid_by", "amount", ...}` | 201 | Brief-compatible alias for expense creation |
+| `GET` | `/groups/{group_id}/expenses` | Bearer Token (Member) | None (Query: `limit`, `cursor`) | 200 | Keyset paginated group expenses list |
+| `GET` | `/groups/{group_id}/balances` | Bearer Token (Member) | None | 200 | Derived pairwise and net balances |
+| `GET` | `/balances` | Bearer Token | None | 200 | Derived balances across caller's groups |
+| `GET` | `/groups/{group_id}/settle-up` | Bearer Token (Member) | None | 200 | Greedy debt simplification suggestions |
+| `POST` | `/groups/{group_id}/settlements` | Bearer Token (Member) | `{"from_user", "to_user", "amount", "method"}` | 201 | Record repayment with ledger entry |
+| `GET` | `/groups/{group_id}/settlements` | Bearer Token (Member) | None (Query: `limit`, `cursor`) | 200 | Keyset paginated settlements list |
 
 ---
 
@@ -77,18 +92,41 @@ curl -X POST "http://localhost:8000/users" \
 **Response (201 Created):**
 ```json
 {
-  "id": "usr_944e8bc1a43d92fb90a218f029",
-  "name": "Mohit",
-  "created_at": "2026-10-30T10:00:00Z"
+  "user": {
+    "id": "usr_944e8bc1a43d92fb90a218f029",
+    "name": "Mohit",
+    "created_at": "2026-10-30T10:00:00Z"
+  },
+  "api_token": "est_3qV9A_c1F...<shown once>"
 }
 ```
 
 ---
 
-### 3.3 List Users (Keyset Paginated)
+### 3.3 Rotate API Token
+
+```bash
+curl -X POST "http://localhost:8000/users/me/token/rotate" \
+  -H "Authorization: Bearer est_3qV9A_c1F..." \
+  -H "Accept: application/json"
+```
+
+**Response (200 OK):**
+```json
+{
+  "api_token": "est_9xL4K_p2M...<new token>"
+}
+```
+
+---
+
+### 3.4 List Users (Keyset Paginated)
+
+Lists users who share at least one group with the authenticated caller (plus the caller).
 
 ```bash
 curl -X GET "http://localhost:8000/users?limit=20" \
+  -H "Authorization: Bearer est_3qV9A_c1F..." \
   -H "Accept: application/json"
 ```
 
@@ -108,10 +146,13 @@ curl -X GET "http://localhost:8000/users?limit=20" \
 
 ---
 
-### 3.4 Create Group
+### 3.5 Create Group
+
+Creates a new group. The authenticated caller is automatically enrolled as the first member.
 
 ```bash
 curl -X POST "http://localhost:8000/groups" \
+  -H "Authorization: Bearer est_3qV9A_c1F..." \
   -H "Content-Type: application/json" \
   -d '{"name": "Goa Trip"}'
 ```
@@ -495,7 +536,8 @@ All error responses return HTTP status codes aligned with RFC standards and an e
 | HTTP Status | Error Code | Description / Trigger Conditions |
 |---|---|---|
 | `400 Bad Request` | `BAD_REQUEST` | Malformed request syntax or unparseable headers. |
-| `404 Not Found` | `NOT_FOUND` | Specified user or group does not exist. |
+| `401 Unauthorized` | `UNAUTHENTICATED` | Missing, malformed, or invalid Bearer API token. |
+| `404 Not Found` | `NOT_FOUND` | Specified user or group does not exist (or caller is not a member, preventing group ID enumeration). |
 | `409 Conflict` | `ALREADY_MEMBER` | User is already a member of the target group. |
 | `422 Unprocessable` | `VALIDATION_ERROR` | Schema validation error (e.g. empty name, negative amount, float amount, > 2 decimals, unrecognized fields). |
 | `422 Unprocessable` | `PAYER_NOT_MEMBER` | The `paid_by` user is not a member of the group. |

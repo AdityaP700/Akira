@@ -23,12 +23,14 @@ from app.repositories import idempotency as idempotency_repo
 from app.repositories import ledger as ledger_repo
 from app.repositories import users as users_repo
 from app.repositories.models import Expense, User
+from app.security.guards import require_member, require_member_and_lock
 
 
 def create_expense(
     session: Session,
     group_public_id: str,
     payload: ExpenseIn,
+    actor: User | None = None,
     idempotency_key: str | None = None,
     http_method: str = "POST",
     http_path: str = "/groups/{group_id}/expenses",
@@ -39,13 +41,14 @@ def create_expense(
     Transaction flow:
     1. Check idempotency record if key is present.
     2. Open transaction: lock group row (SELECT ... FOR UPDATE).
-    3. Validate payer is a member of the group.
-    4. Validate split strategy and compute participant shares.
-    5. Assert sum of shares equals total amount.
-    6. Insert expense and expense_shares.
-    7. Append ledger entry (payload contains ids and amounts only).
-    8. Save idempotency record.
-    9. Commit and return response data.
+    3. Validate actor is member (OWASP API1).
+    4. Validate payer is a member of the group.
+    5. Validate split strategy and compute participant shares.
+    6. Assert sum of shares equals total amount.
+    7. Insert expense and expense_shares.
+    8. Append ledger entry (payload contains ids and amounts only).
+    9. Save idempotency record.
+    10. Commit and return response data.
     """
     fingerprint = ""
     with session.begin():
@@ -65,10 +68,14 @@ def create_expense(
                 if existing.response_body is not None:
                     return existing.response_body, existing.response_status or 201
 
-        # 1. Lock group row FOR UPDATE
-        group = groups_repo.lock_for_update_by_public_id(session, group_public_id)
-        if group is None:
-            raise NotFoundError(f"Group '{group_public_id}' not found")
+        # 1. Lock group row FOR UPDATE and check actor membership
+        if actor is not None:
+            group = require_member_and_lock(session, group_public_id, actor)
+        else:
+            raw_group = groups_repo.lock_for_update_by_public_id(session, group_public_id)
+            if raw_group is None:
+                raise NotFoundError(f"Group '{group_public_id}' not found")
+            group = raw_group
 
         # 2. Validate payer
         payer = users_repo.get_by_public_id(session, payload.paid_by)
@@ -203,14 +210,19 @@ def create_expense(
 def list_expenses(
     session: Session,
     group_public_id: str,
+    actor: User | None = None,
     limit: int = 20,
     cursor: str | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
     """List expenses for a group using keyset pagination."""
     with session.begin():
-        group = groups_repo.get_by_public_id(session, group_public_id)
-        if group is None:
-            raise NotFoundError(f"Group '{group_public_id}' not found")
+        if actor is not None:
+            group = require_member(session, group_public_id, actor)
+        else:
+            raw_group = groups_repo.get_by_public_id(session, group_public_id)
+            if raw_group is None:
+                raise NotFoundError(f"Group '{group_public_id}' not found")
+            group = raw_group
 
         stmt = (
             select(Expense, User)
