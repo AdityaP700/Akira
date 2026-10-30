@@ -42,7 +42,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Debtor-initiated cash settlements create a `CLAIMED` status requiring receiver confirmation (`POST .../confirm` or `POST .../reject`).
 **Proposed (not built):**
 - Real UPI provider integration (Decentro / Razorpay) in production deployment phase.
-**Commit:** <hash> `feat(settlements): payment lifecycle with signed webhooks, fallback and notifications`
+**Commit:** 4043eaf `feat(settlements): payment lifecycle with signed webhooks, fallback and notifications`
 **Next:** Phase A4 — Tamper-Evident HMAC Hash-Chained Ledger (`prompts/advanced/A4_tamper_evident_ledger.md`).
 
 ---

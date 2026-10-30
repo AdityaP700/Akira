@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <commit-hash> — A3 — Settlement payment lifecycle, signed webhooks, and notifications
+## 4043eaf — A3 — Settlement payment lifecycle, signed webhooks, and notifications
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented an enterprise-grade settlement payment lifecycle, HMAC-SHA256 signed webhook processing, provider status refresh fallback, and transactional notification logging. Settlements now transition monotonically based on external provider callbacks or receiver confirmations, with concurrent in-flight debt reservation and complete isolation between database transactions and foreign network calls.
 **Files changed:**
