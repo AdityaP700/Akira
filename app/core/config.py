@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     WEBHOOK_HMAC_KEY: str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     WEBHOOK_KEY_ID: str = "wh_dev_key"
 
+    # Audit HMAC Configuration (Tamper-evident ledger hash chain)
+    AUDIT_HMAC_KEY: str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    AUDIT_KEY_ID: str = "audit_dev_key"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -26,7 +30,10 @@ class Settings(BaseSettings):
 
     def __repr__(self) -> str:
         """Never log secrets or full connection strings in logs or debug representations."""
-        return f"Settings(APP_ENV={self.APP_ENV!r}, DB='***', KID={self.WEBHOOK_KEY_ID!r})"
+        return (
+            f"Settings(APP_ENV={self.APP_ENV!r}, DB='***', "
+            f"WH_KID={self.WEBHOOK_KEY_ID!r}, AUDIT_KID={self.AUDIT_KEY_ID!r})"
+        )
 
     def __str__(self) -> str:
         return self.__repr__()

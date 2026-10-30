@@ -45,6 +45,13 @@ def test_alembic_upgrade_and_downgrade(tmp_path: Path) -> None:
     settlement_columns = {col["name"] for col in inspector.get_columns("settlements")}
     assert {"reference", "created_by", "updated_at", "provider_intent"}.issubset(settlement_columns)
 
+    # Verify audit hash columns added by 004_tamper_evident_ledger
+    ledger_columns = {col["name"] for col in inspector.get_columns("ledger_entries")}
+    assert {"prev_hash", "entry_hash", "key_id"}.issubset(ledger_columns)
+
+    group_columns = {col["name"] for col in inspector.get_columns("groups")}
+    assert "ledger_head_hash" in group_columns
+
     # Run downgrade back to base
     command.downgrade(alembic_cfg, "base")
 

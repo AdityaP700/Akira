@@ -81,6 +81,7 @@ class Group(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     ledger_head_seq: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    ledger_head_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -294,6 +295,9 @@ class LedgerEntry(Base):
     payload: Mapped[dict[str, Any]] = mapped_column(
         JSON().with_variant(JSONB(), "postgresql"), nullable=False
     )
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    entry_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    key_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

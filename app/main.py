@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.routers import (
+    audit,
     balances,
     dev,
     expenses,
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
     app.include_router(balances.router)
     app.include_router(settlements.router)
     app.include_router(notifications.router)
+    app.include_router(audit.router)
     app.include_router(webhooks.router)
 
     # Include mock-provider dev simulation routes only in non-production environments

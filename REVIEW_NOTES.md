@@ -24,6 +24,50 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <commit-hash> — A4 — Tamper-evident HMAC hash-chained ledger and verification
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Implemented tamper-evident HMAC-SHA256 hash chaining on all group ledger entries and exposed an audit verification endpoint (`GET /groups/{id}/audit/verify`). Any out-of-band manipulation of ledger amounts, deletions of sequence entries, or direct SQL tampering of underlying expense/settlement rows is cryptographically detected.
+**Files changed:**
+- `alembic/versions/004_tamper_evident_ledger.py`: Additive migration adding `prev_hash`, `entry_hash`, `key_id` to `ledger_entries`, and `ledger_head_hash` to `groups`.
+- `app/domain/audit.py`: Pure domain canonical JSON serialization and HMAC-SHA256 hash calculation.
+- `app/adapters/keys.py`: Extended `KeyProvider` and `EnvKeyProvider` to manage and rotate audit HMAC keys.
+- `app/repositories/models.py`: Updated `Group` and `LedgerEntry` models with hash chaining fields.
+- `app/repositories/ledger.py`: Implemented hash calculation during entry appending while holding group row lock.
+- `app/api/schemas/audit.py`: Pydantic models for audit verification response (`AuditVerifyOut`).
+- `app/services/audit.py`: Verification use case verifying sequence contiguity, hash links, and underlying table rows.
+- `app/api/routers/audit.py`: REST endpoint `GET /groups/{group_id}/audit/verify` with membership guard.
+- `app/services/expenses.py` & `app/api/routers/expenses.py`: Wired key provider into expense ledger creation.
+- `app/main.py`: Mounted audit router.
+- `scripts/backfill_ledger_hashes.py`: One-off backfill utility for legacy ledger entries.
+- `docs/SECURITY.md`: Added Section 5 detailing HMAC vs plain SHA-256 rationale and future anchoring roadmap.
+- `README.md`: Added Section 9 documenting the tamper-evident ledger and demo workflow.
+- `tests/unit/test_migrations.py`: Added migration tests asserting upgrade/downgrade behavior for schema revision 004.
+- `tests/api/test_audit_verify.py`: 9 integration tests verifying valid chains, payload tampering, expense row mutation, deleted rows, wrong keys, key rotation, and BOLA 404.
+**Behaviour before → after:**
+- Every ledger append automatically computes and records `prev_hash`, `entry_hash`, and `key_id`.
+- Members can query `GET /groups/{id}/audit/verify` to receive cryptographic proof of ledger integrity.
+- Direct database updates to amounts or deletions immediately flag `valid: false` with exact `broken_at` sequence and reason.
+**How to verify:**
+1. `pytest -q --cov=app` (151 passed, 0 failed, 93% total coverage).
+2. `ruff check .` && `ruff format --check .` && `mypy app/domain app/services` (all clean).
+3. Test audit verify via curl:
+   ```bash
+   GET /groups/{group_id}/audit/verify
+   # Returns: {"valid": true, "entries": n, "head": "<hash>"}
+   ```
+**Risks / things to look at closely:**
+- Lock ordering: group row lock is always acquired first before appending to ledger.
+- Canonical JSON format: sorted keys and whitespace-free separators ensure deterministic hash calculation across platforms.
+**Expected follow-up:**
+- Phase A5: Encrypted User PII (UPI VPA) and Blind Indexing (`prompts/advanced/A5_encrypted_pii_and_blind_index.md`).
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 4043eaf — A3 — Settlement payment lifecycle, signed webhooks, and notifications
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented an enterprise-grade settlement payment lifecycle, HMAC-SHA256 signed webhook processing, provider status refresh fallback, and transactional notification logging. Settlements now transition monotonically based on external provider callbacks or receiver confirmations, with concurrent in-flight debt reservation and complete isolation between database transactions and foreign network calls.

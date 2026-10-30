@@ -91,3 +91,21 @@ sequenceDiagram
 6. **Debt Reservation Under Concurrency:** In-flight settlements (`PENDING`, `CLAIMED`) reserve allowable pairwise debt capacity. Concurrent requests attempting to settle the same debt in parallel are rejected with 422 `OVERPAYMENT`.
 7. **Isolation of Foreign Calls:** Provider interactions occur strictly outside database transactions. Database connections are never held open during network I/O.
 8. **Sensitive Data Masking:** Webhook signatures, provider tokens, VPAs, and phone numbers are redacted in all structured access logs via `MaskingFilter`.
+
+---
+
+## 5. Tamper-Evident Ledger Integrity (HMAC Hash Chaining)
+
+Every recorded financial movement (`EXPENSE`, `SETTLEMENT`, `REVERSAL`) is immutably appended to `ledger_entries` within an HMAC-SHA256 hash chain rooted per-group:
+
+$$\\text{entry\\_hash} = \\text{HMAC-SHA256}(\\text{AUDIT\\_HMAC\\_KEY}[\\text{kid}], \\text{prev\\_hash} \\parallel "|" \\parallel \\text{canonical\\_json}(\\text{entry}))$$
+
+### Why HMAC and Not Plain SHA-256?
+- **The Threat:** In a database compromise or insider threat scenario, an attacker with SQL write privileges (`UPDATE ledger_entries SET payload = ...`) can modify an entry. If plain SHA-256 were used, the attacker could simply recompute the subsequent hash chain in SQL or a script, leaving zero detectable anomalies.
+- **The HMAC Defense:** HMAC requires a secret key (`AUDIT_HMAC_KEY`) stored strictly outside the database in the application environment/secrets manager. Even with full database access, an adversary cannot forge valid entry hashes or recompute the hash chain after altering historical amounts, dates, or participants.
+- **Payload Cross-Verification:** `GET /groups/{id}/audit/verify` not only verifies sequence continuity and HMAC chain digests, but also cross-checks every entry payload against the actual referenced row in `expenses` or `settlements`, detecting any out-of-band tampering with underlying tables.
+
+### Cryptographic Roadmap & Next Steps:
+1. **Asymmetric Digital Signatures (Ed25519):** Transitioning to public-key cryptography enables third parties, external auditors, or group members to verify ledger integrity without needing access to a shared HMAC secret.
+2. **Periodic External Head Anchoring:** Anchoring the daily head hash in an external timestamping service or public transparency log (e.g. RFC 6962 / OpenTimestamps) guarantees that historical records cannot be rewritten even if the private key is later compromised.
+3. **Sparse Merkle Trees:** At large scale (millions of entries across thousands of organizations), Merkle trees allow $O(\\log n)$ inclusion proofs without traversing the entire ledger history sequentially.

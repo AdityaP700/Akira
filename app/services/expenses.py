@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
+from app.adapters.keys import KeyProvider
 from app.adapters.notifier import DbNotifier, Notifier
 from app.api.schemas.expenses import ExpenseIn
 from app.core.errors import (
@@ -37,6 +38,7 @@ def create_expense(
     http_path: str = "/groups/{group_id}/expenses",
     canonical_body: str = "",
     notifier: Notifier | None = None,
+    key_provider: KeyProvider | None = None,
 ) -> tuple[dict[str, Any], int]:
     """Atomically create an expense, shares, and ledger entry with idempotency.
 
@@ -159,6 +161,7 @@ def create_expense(
             entry_type="EXPENSE",
             ref_id=expense.id,
             payload=ledger_payload,
+            key_provider=key_provider,
         )
 
         if notifier is None:

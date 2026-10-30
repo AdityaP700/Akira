@@ -158,6 +158,7 @@ All error responses return a uniform envelope with the trace ID:
 | `GET` | `/users/me/notifications` | None (`?unread=true`) | Keyset-paginated notification feed for actor |
 | `POST` | `/users/me/notifications/{id}/read` | None | Mark notification as read |
 | `GET` | `/groups/{id}/settlements` | None (`?limit=&cursor=`) | Keyset-paginated settlement history |
+| `GET` | `/groups/{id}/audit/verify` | None | Cryptographic integrity verification of group ledger |
 
 ### Example Balances Output (`GET /groups/{id}/balances`)
 After Mohit pays ₹1200 for Dinner (EQUAL) and Rahul pays ₹600 for Cab (EQUAL):
@@ -307,9 +308,47 @@ For local testing and automated pipelines without live UPI hardware:
 
 ---
 
-## 9. Testing & Verification
+---
 
-The test suite contains 142 automated tests spanning pure domain mathematics, database constraints, migrations, security edge hardening, and full API integration:
+## 9. Tamper-Evident HMAC Hash-Chained Ledger
+
+Every recorded financial movement (`EXPENSE`, `SETTLEMENT`, `REVERSAL`) is appended to `ledger_entries` within an immutable HMAC-SHA256 hash chain rooted per-group.
+
+### Hash Chain Construction
+- Genesis `prev_hash`: `0000000000000000000000000000000000000000000000000000000000000000` (64 zeros).
+- `entry_hash = HMAC_SHA256(AUDIT_HMAC_KEY[kid], prev_hash || "|" || canonical_json(entry))`
+- `canonical_json`: sorted keys, whitespace-free separators (`","`, `":"`), UTF-8 encoded, integer paise amounts, and UTC ISO-8601 timestamps.
+- Locked Group Row: Computed within the same transactional scope while holding `SELECT ... FOR UPDATE` on the group row, eliminating race conditions on `prev_hash`.
+
+### Demo Workflow: Tamper and Verify
+1. **Verify Valid Chain:**
+   ```bash
+   GET /groups/{group_id}/audit/verify
+   # Headers: Authorization: Bearer <member_token>
+   # Returns: {"valid": true, "entries": 2, "head": "a3f5b7..."}
+   ```
+2. **Simulate Database Tampering:**
+   An attacker with direct database access alters a ledger payload or an underlying expense row:
+   ```sql
+   UPDATE ledger_entries SET payload = json('{"amount_paise": 99999}') WHERE group_id = 1 AND seq = 1;
+   ```
+3. **Run Audit Verification Again:**
+   ```bash
+   GET /groups/{group_id}/audit/verify
+   # Returns: {"valid": false, "broken_at": 1, "reason": "hash_mismatch"}
+   ```
+4. **Detect Row Deletion:**
+   If an adversary deletes a row to hide a transaction (`DELETE FROM ledger_entries WHERE seq = 2`), verification immediately identifies the discontinuity:
+   ```bash
+   GET /groups/{group_id}/audit/verify
+   # Returns: {"valid": false, "broken_at": 2, "reason": "seq_gap"}
+   ```
+
+---
+
+## 10. Testing & Verification
+
+The test suite contains 151 automated tests spanning pure domain mathematics, database constraints, migrations, security edge hardening, and full API integration:
 
 ```bash
 # Run tests with coverage
@@ -323,14 +362,14 @@ mypy app/domain app/services
 ```
 
 ### Coverage Highlights
-- **Total Test Suite:** 142 passed, 0 failures, 93% total code coverage.
+- **Total Test Suite:** 151 passed, 0 failures, 93% total code coverage.
 - **Pure Domain (`app/domain/`):** 100% test coverage across money parsing, equal/exact splits, balance netting, and settle-up simplification.
 - **Zero Float Invariant:** Verified via AST and regex inspection (`tests/unit/test_no_float.py`).
 - **Security & BOLA Suite:** 100% coverage on object authorization guards (`app/security/guards.py`) and edge hardening.
 
 ---
 
-## 10. Reliability & Security Notes
+## 11. Reliability & Security Notes
 
 - **Authentication & BOLA Prevention (Phase A1):** Bearer tokens (`est_...`) validated via SHA-256 hashes in constant time (`hmac.compare_digest`). Non-members receive 404 `NOT_FOUND` to prevent group ID enumeration (OWASP API1).
 - **Edge Hardening & Abuse Protection (Phase A2):** 64 KB maximum payload limit (413), JSON Content-Type validation (415), slowapi rate limiting per token and per IP (429 with `Retry-After`), and defensive security headers (`nosniff`, `no-store`, `frame-ancestors 'none'`, `no-referrer`, HSTS in prod).
@@ -341,12 +380,12 @@ mypy app/domain app/services
 
 ---
 
-## 11. Advanced Phases Roadmap
+## 12. Advanced Phases Roadmap
 
 - [x] **Phase A1:** Per-user authentication & object-level authorization (group membership required for all group routes).
 - [x] **Phase A2:** Edge hardening, IP & token-based rate limiting (slowapi), security headers, masked structured logs, and OWASP API Top 10 matrix.
 - [x] **Phase A3:** Settlement payment lifecycle with mock payment provider and HMAC-SHA256 signed webhooks.
-- [ ] **Phase A4:** Tamper-evident HMAC hash-chained ledger with `/audit/verify` integrity endpoint.
+- [x] **Phase A4:** Tamper-evident HMAC hash-chained ledger with `/audit/verify` integrity endpoint.
 - [ ] **Phase A5:** Encrypted user UPI VPA with blind indexing (AES-256-GCM + HMAC-SHA256) and dual database roles.
 - [ ] **Phase A6:** Formal proofs, threat model finalization, and end-to-end audit.
 - **Phase A6 (Planned):** Production observability with structured JSON logging and automated PII masking.

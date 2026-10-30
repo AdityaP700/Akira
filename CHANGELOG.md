@@ -19,6 +19,33 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 00:45 — A4 — Tamper-evident HMAC hash-chained ledger and verification
+**Status:** done
+**What changed:**
+- Added Alembic migration `004_tamper_evident_ledger.py` introducing `prev_hash`, `entry_hash`, `key_id` to `ledger_entries`, and `ledger_head_hash` to `groups`.
+- Implemented pure domain canonical JSON serializer and HMAC-SHA256 entry hasher in `app/domain/audit.py` using genesis hash `0*64` and formula `HMAC_SHA256(key, prev_hash || "|" || canonical_json(entry))`.
+- Extended `KeyProvider` and `EnvKeyProvider` in `app/adapters/keys.py` to support audit key management and rotation.
+- Updated `app/repositories/ledger.py` to atomically compute and persist HMAC hash chain records during `append` under exclusive group row locks (`SELECT ... FOR UPDATE`).
+- Implemented audit verification service in `app/services/audit.py` checking sequence continuity, prev_hash linkage, HMAC verification, and cross-checking entry payloads against underlying expense/settlement database rows.
+- Added endpoint `GET /groups/{group_id}/audit/verify` (members only, BOLA guarded) returning `{"valid": true, "entries": n, "head": "<hash>"}` or `{"valid": false, "broken_at": seq, "reason": "hash_mismatch|seq_gap"}`.
+- Created `scripts/backfill_ledger_hashes.py` for historical ledger backfilling.
+- Added comprehensive test suite `tests/api/test_audit_verify.py` (9 tests covering 50-entry chains, payload tampering, expense row mutation, deleted rows/seq gaps, key rotation, wrong keys, and BOLA 404).
+- Updated `docs/SECURITY.md` Section 5 detailing HMAC vs plain SHA-256 rationale and future anchoring roadmap, and updated `README.md` with demo workflow.
+**Why:**
+- Ensure any unauthorized modification or deletion of recorded financial history outside the application is cryptographically detectable, in compliance with PROJECT_PLAN.md §7, GUARDRAILS.md (B5, D6), and prompts/advanced/A4_tamper_evident_ledger.md.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` → 151 passed, 0 failed (93% total coverage); `make lint` → ok (ruff & mypy clean)
+**Decisions:**
+- HMAC was selected over plain SHA-256 because plain SHA-256 allows an attacker with direct database access to alter records and recompute hashes, whereas HMAC keys reside strictly outside the database in the application environment.
+- BOLA protection returns identical 404 `NOT_FOUND` to non-members.
+**Proposed (not built):**
+- Asymmetric Ed25519 signatures and external anchoring of daily head hashes (documented in `docs/SECURITY.md`).
+**Commit:** <hash> `feat(audit): HMAC hash-chained ledger with verification endpoint`
+**Next:** Phase A5 — Encrypted PII and Blind Indexing (`prompts/advanced/A5_encrypted_pii_and_blind_index.md`).
+
+---
+
 ## 2026-10-30 20:45 — A3 — Settlement payment lifecycle, signed webhooks, and notifications
 **Status:** done
 **What changed:**

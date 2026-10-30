@@ -7,7 +7,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_actor, get_db
+from app.adapters.keys import KeyProvider
+from app.api.deps import get_actor, get_db, get_key_provider
 from app.api.schemas.expenses import ExpenseIn, ExpenseListOut, ExpenseOut
 from app.core.errors import ValidationError
 from app.repositories.models import User
@@ -36,6 +37,7 @@ def create_group_expense(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     actor: Annotated[User, Depends(get_actor)],
+    key_provider: Annotated[KeyProvider, Depends(get_key_provider)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Any:
     _validate_idempotency_key(idempotency_key)
@@ -49,6 +51,7 @@ def create_group_expense(
         http_method=request.method,
         http_path=f"/groups/{group_id}/expenses",
         canonical_body=canonical_body,
+        key_provider=key_provider,
     )
     return data
 
@@ -65,6 +68,7 @@ def create_expense_alias(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     actor: Annotated[User, Depends(get_actor)],
+    key_provider: Annotated[KeyProvider, Depends(get_key_provider)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Any:
     _validate_idempotency_key(idempotency_key)
@@ -81,6 +85,7 @@ def create_expense_alias(
         http_method=request.method,
         http_path="/expenses",
         canonical_body=canonical_body,
+        key_provider=key_provider,
     )
     return data
 
