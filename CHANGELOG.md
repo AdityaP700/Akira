@@ -36,7 +36,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - `ON DELETE RESTRICT` used across all financial tables to prevent cascading deletion of history.
 - `ledger.append` requires caller to hold group row-level lock.
 **Proposed (not built):** None.
-**Commit:** PENDING `feat(db): schema with shares, settlements, append-only ledger, idempotency`
+**Commit:** 078ddfc `feat(db): schema with shares, settlements, append-only ledger, idempotency`
 **Next:** Phase B3 — Users & Groups API (`prompts/baseline/B3_users_groups_api.md`).
 
 ## 2026-10-30 17:00 — B1 — Pure domain logic: money, splits, balances, settle-up

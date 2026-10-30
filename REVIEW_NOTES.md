@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## PENDING — B2 — Database schema, Alembic migrations, repositories
+## 078ddfc — B2 — Database schema, Alembic migrations, repositories
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented the complete relational schema with Alembic migrations, SQLAlchemy 2.0 models, and repository functions. Built tables with DB-level constraints (integer paise limits, non-negative shares, no self-settlements, name/description lengths) and created the append-only ledger and idempotency storage.
 **Files changed:**
