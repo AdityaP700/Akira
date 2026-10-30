@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <commit hash> — A5 — PII protection (Encrypted VPA with AES-256-GCM + Blind Index), SHARES split strategy, and least-privilege DB roles
+## c6bc47a — A5 — PII protection (Encrypted VPA with AES-256-GCM + Blind Index), SHARES split strategy, and least-privilege DB roles
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Implemented application-level AEAD encryption (AES-256-GCM) with authenticated associated data for sensitive payment identifiers (VPAs), paired with HMAC-SHA256 blind indexing for O(1) duplicate collision prevention without decrypting database records. Introduced the weighted `SHARES` expense split strategy with deterministic remainder distribution, and established least-privilege PostgreSQL roles (`app_owner` vs `app_rw`) completely revoking `UPDATE` and `DELETE` on append-only financial records.
 **Files changed:**

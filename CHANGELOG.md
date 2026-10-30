@@ -42,7 +42,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Blind index normalizes by trimming and lowercasing to enforce case-insensitive uniqueness.
 **Proposed (not built):**
 - Per-user Data Encryption Keys (DEKs) wrapped by AWS KMS/GCP Cloud KMS for crypto-shredding on GDPR erasure requests (documented in `docs/SECURITY.md`).
-**Commit:** <hash> `feat(privacy): encrypted VPA with blind index, shares split, least-privilege DB role`
+**Commit:** c6bc47a `feat(privacy): encrypted VPA with blind index, shares split, least-privilege DB role`
 **Next:** Phase A6 — Formal proofs, threat model finalization, and end-to-end audit (`prompts/advanced/A6_formal_proofs_and_threat_model.md`).
 
 ---
