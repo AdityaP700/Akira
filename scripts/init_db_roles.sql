@@ -1,5 +1,8 @@
--- Least-privilege PostgreSQL roles configuration for Akira
---
+\set ON_ERROR_STOP on
+
+-- ==============================================================================
+-- Least-Privilege PostgreSQL Roles Setup for Akira
+-- ==============================================================================
 -- Security rationale:
 -- 1. Separation of DDL and DML: The application runtime role (app_rw) does NOT own
 --    any tables or sequences. If an SQL injection vulnerability or runtime compromise
@@ -12,27 +15,48 @@
 --    - Tables `users`, `groups`, `group_members`, `expenses`, `settlements`, `idempotency_keys`
 --      are granted SELECT, INSERT, UPDATE.
 -- 3. Migration and schema administration are reserved strictly for `app_owner`.
+--
+-- ==============================================================================
+-- Execution Instructions (Neon / Hosted Postgres / Local):
+-- ==============================================================================
+-- Connect with administrative privileges (e.g. 'neondb_owner' on Neon, or 'postgres' locally)
+-- and pass your chosen passwords as psql variables:
+--
+--   psql "$ADMIN_DATABASE_URL" \
+--     -v app_owner_password="<your_chosen_owner_password>" \
+--     -v app_rw_password="<your_chosen_rw_password>" \
+--     -f scripts/init_db_roles.sql
+--
+-- Note: Neither real nor dev passwords are stored in this script.
+--
+-- ==============================================================================
 
--- Create roles if not existing
+-- Create roles if they do not exist
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'app_owner') THEN
-        CREATE ROLE app_owner WITH LOGIN PASSWORD 'app_owner_dev_pass';
+        CREATE ROLE app_owner WITH LOGIN;
     END IF;
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'app_rw') THEN
-        CREATE ROLE app_rw WITH LOGIN PASSWORD 'app_rw_dev_pass';
+        CREATE ROLE app_rw WITH LOGIN;
     END IF;
 END $$;
 
--- Grant database connection
-GRANT CONNECT ON DATABASE akira TO app_owner;
-GRANT CONNECT ON DATABASE akira TO app_rw;
+-- Set user-chosen passwords from psql variables
+ALTER ROLE app_owner WITH LOGIN PASSWORD :'app_owner_password';
+ALTER ROLE app_rw WITH LOGIN PASSWORD :'app_rw_password';
 
--- Migration runner ownership
+-- Grant connection on the current connected database (e.g. 'akira' or Neon database)
+DO $$
+BEGIN
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO app_owner, app_rw', current_database());
+END $$;
+
+-- Migration runner schema ownership
 GRANT ALL ON SCHEMA public TO app_owner;
 ALTER SCHEMA public OWNER TO app_owner;
 
--- Ensure future tables created by app_owner give default permissions to app_rw
+-- Ensure future tables created by app_owner grant permissions to app_rw
 ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO app_rw;
 

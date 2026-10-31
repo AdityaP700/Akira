@@ -19,6 +19,27 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 08:25 — D1-3.8 — Parameterize database role creation script
+**Status:** done
+**What changed:**
+- Parameterized `scripts/init_db_roles.sql` to accept user-chosen passwords via `psql` variables (`:'app_owner_password'` and `:'app_rw_password'`).
+- Removed all hardcoded real and dev passwords from `scripts/init_db_roles.sql`.
+- Used dynamic SQL `format('GRANT CONNECT ON DATABASE %I TO app_owner, app_rw', current_database())` so role connection grants dynamically adapt to any target database name (e.g. `akira` locally or `neondb` on Neon).
+- Added comprehensive instructions on executing the script with custom passwords on Neon and hosted PostgreSQL.
+**Why:**
+- Comply with D1 Part 3 Item 8 and Guardrail S1/S2: never commit plain credentials in SQL scripts and allow clean deployment on Neon with independent passwords.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok; `pytest -q --cov=app` -> 175 passed on PostgreSQL 16.
+**Decisions:**
+- Role creation uses `CREATE ROLE ... WITH LOGIN` if not exists, followed by `ALTER ROLE ... WITH LOGIN PASSWORD :'variable'`, supporting both fresh installations and password rotations safely.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> `refactor(db): parameterize role creation script for secure remote execution`
+**Next:** Item 9: README rewrite with user logo, demo walkthrough screenshots guide, Render/Neon deployment guide, and Postman base_url.
+
+---
+
 ## 2026-10-31 08:20 — D1-3.7 — Security audits with pip-audit and gitleaks
 **Status:** done
 **What changed:**
@@ -36,7 +57,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Gitleaks run via Docker container without installing system binaries.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> `chore(security): run pip-audit and gitleaks security scans`
+**Commit:** 8d0b01b `chore(security): run pip-audit and gitleaks security scans`
 **Next:** Item 8: parameterize scripts/init_db_roles.sql for remote Neon execution.
 
 ---
