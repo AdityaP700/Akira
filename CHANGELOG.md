@@ -19,6 +19,27 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 07:52 — D1-3.3 — Add container start.sh entrypoint with migrations and proxy-headers
+**Status:** done
+**What changed:**
+- Created `scripts/start.sh` with executable permissions and LF line endings to run `alembic upgrade head` before launching `uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1 --proxy-headers`.
+- Updated `Dockerfile` to make `scripts/start.sh` executable and set container command to `CMD ["./scripts/start.sh"]` running as non-root user `appuser`.
+- Defensive exception handling added to `alembic/env.py` during DDL pre-checks.
+- Verified in live Docker container that `scripts/start.sh` runs migrations, starts uvicorn with proxy headers, and logs `db_user: app_rw`.
+**Why:**
+- Comply with D1 Part 3 Item 3: automate database migration execution on deployment boot and forward client headers behind reverse proxies like Render.
+**Not done / failed (and why):**
+- None.
+**Tests:** `docker compose logs api` -> verified `alembic upgrade head` followed by `uvicorn` startup with proxy-headers; `make lint` -> ok; `pytest -q --cov=app` -> 172 passed.
+**Decisions:**
+- Use `exec` in `start.sh` so uvicorn directly receives OS signals (SIGTERM/SIGINT) for clean process termination.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> `feat(deploy): add start.sh entrypoint with migrations and proxy-headers`
+**Next:** D1 Part 3 Item 4: forwarded client IP rate limiting behind Render proxy.
+
+---
+
 ## 2026-10-31 07:45 — D1-3.2 — Add demo profile with mock payments and header hardening
 **Status:** done
 **What changed:**

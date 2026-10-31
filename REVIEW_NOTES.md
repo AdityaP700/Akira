@@ -24,6 +24,33 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — D1-3.3 — Add container start.sh entrypoint with migrations and proxy-headers
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Added scripts/start.sh entrypoint script running migrations then uvicorn with proxy headers under non-root appuser in Dockerfile.
+**Files changed:**
+- `scripts/start.sh`: Executable POSIX shell script running alembic upgrade head followed by exec uvicorn with --proxy-headers.
+- `Dockerfile`: Made scripts/start.sh executable and updated CMD to run it under non-root appuser.
+- `alembic/env.py`: Added defensive try/except around alembic_version DDL execution.
+**Behaviour before → after:**
+- Before: Container ran uvicorn directly without automated migrations or proxy-headers flag.
+- After: Container boots, automatically applies pending migrations via Alembic as app_owner, then launches uvicorn with --proxy-headers as app_rw.
+**How to verify:**
+1. Check docker compose logs:
+   `docker compose logs api` -> shows `==> Running database migrations via Alembic...` followed by `Uvicorn running on http://0.0.0.0:8000`.
+2. Run test suite:
+   `pytest -q --cov=app` (172 passed)
+**Risks / things to look at closely:**
+- Non-root user `appuser` (UID 10001) has full execution permissions on `scripts/start.sh`.
+**Expected follow-up:**
+- Item 4: Forwarded client IP rate limiting behind Render proxy.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## a3839a6 — D1-3.2 — Add demo profile with mock payments and header hardening
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Added APP_ENV=demo profile with X-Environment: demo-mock-payments header, enabling /docs and /dev mock provider simulation while retaining full production edge hardening. Added test suite for demo vs prod.
