@@ -24,6 +24,31 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — D1-3.5 — Add render.yaml deployment configuration
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Created render.yaml Infrastructure-as-Code blueprint for deploying the containerized service to Render with healthCheckPath /health and sync: false on all secrets.
+**Files changed:**
+- `render.yaml`: Render Blueprint specification with Docker web service, healthcheck, and sync: false for secrets.
+**Behaviour before → after:**
+- Before: Manual configuration was required to deploy the service on Render.
+- After: Render Blueprint can instantiate the service from `render.yaml` and prompt the operator for secrets in the Render UI.
+**How to verify:**
+1. Check YAML syntax:
+   `python -c "import yaml; yaml.safe_load(open('render.yaml'))"`
+2. Verify /health check returns 200:
+   `pytest tests/api/test_health.py` (passed)
+**Risks / things to look at closely:**
+- All secrets are declared with `sync: false`. No credentials are committed.
+**Expected follow-up:**
+- Item 6: update .env.example with all variable names and comments.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 8f12bb6 — D1-3.4 — Forwarded client IP rate limiting with documented proxy trust
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Configured rate limiting to key on forwarded client IP from X-Forwarded-For behind Render's reverse proxy, with documented trust assumptions.

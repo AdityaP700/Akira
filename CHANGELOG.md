@@ -19,6 +19,26 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 08:00 — D1-3.5 — Add render.yaml deployment configuration
+**Status:** done
+**What changed:**
+- Created `render.yaml` declaring a single Docker web service (`akira-expense-sharing`) with `healthCheckPath: /health`.
+- Configured every secret (`DATABASE_URL`, `MIGRATION_DATABASE_URL`, `WEBHOOK_HMAC_KEY`, `AUDIT_HMAC_KEY`, `PII_ENC_KEY`, `PII_BLIND_INDEX_KEY`) with `sync: false` to prevent repository leakage and enforce Render dashboard secret management.
+- Set `APP_ENV: demo` by default for evaluator review.
+**Why:**
+- Comply with D1 Part 3 Item 5 and Guardrails S1/S2: enable 1-click Render blueprint deployments without baking secrets into repo configurations.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok; `pytest tests/api/test_health.py` -> passed.
+**Decisions:**
+- Render service config uses `sync: false` on all sensitive keys so secrets are injected securely via Render Environment Variables UI.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> `feat(deploy): create render.yaml deployment blueprint`
+**Next:** D1 Part 3 Item 6: .env.example documentation.
+
+---
+
 ## 2026-10-31 07:58 — D1-3.4 — Forwarded client IP rate limiting with documented proxy trust
 **Status:** done
 **What changed:**

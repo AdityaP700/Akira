@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: akira-expense-sharing
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: APP_ENV
+        value: demo
+      - key: DATABASE_URL
+        sync: false
+      - key: MIGRATION_DATABASE_URL
+        sync: false
+      - key: WEBHOOK_HMAC_KEY
+        sync: false
+      - key: WEBHOOK_KEY_ID
+        value: wh_demo_key
+      - key: AUDIT_HMAC_KEY
+        sync: false
+      - key: AUDIT_KEY_ID
+        value: audit_demo_key
+      - key: PII_ENC_KEY
+        sync: false
+      - key: PII_BLIND_INDEX_KEY
+        sync: false
+      - key: PII_KEY_ID
+        value: pii_demo_key
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_USER_REGISTRATION
+        value: "5/minute"
+      - key: RATE_LIMIT_AUTHENTICATED
+        value: "60/minute"
+      - key: RATE_LIMIT_SETTLEMENTS
+        value: "10/minute"
+      - key: MAX_REQUEST_BODY_BYTES
+        value: "65536"
