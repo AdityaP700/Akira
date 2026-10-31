@@ -19,6 +19,28 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 11:20 — D1-3.9 — Embed demo video, add live deployment links and real walkthrough screenshots
+**Status:** done
+**What changed:**
+- Replaced header logo with responsive video embed for `assets/akira_reel_light.mp4`.
+- Updated live demo links with Render URLs (`/docs`, `/health`, and Swagger endpoints).
+- Updated walkthrough table with all 16 live test scenarios mapped to real screenshots in `assets/screenshots/`.
+- Arranged multi-step scenarios (Test 3, 5, 12, 13, 14) horizontally side-by-side with clickable links.
+- Cleaned prose: removed cluttering emojis and double em-dashes across the document.
+**Why:**
+- Provide clear visual proof of live system behaviour with walkthrough video and verified screenshots.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok; `mypy app/domain app/services` -> ok; 193 tests in test suite.
+**Decisions:**
+- Embed video using HTML5 `<video>` tag with direct download link fallback; format multi-screenshot steps side-by-side.
+**Proposed (not built):**
+- None.
+**Commit:** 63f1232 `docs: embed walkthrough video, update live demo url and add real test screenshots`
+**Next:** Ready for final project submission.
+
+---
+
 ## 2026-10-31 09:20 — SEC-CONFIG — Remove secret fallback defaults and enforce key validation
 **Status:** done
 **What changed:**
