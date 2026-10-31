@@ -35,7 +35,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - `TRUSTED_PROXY_HOPS` configurable via environment; defaults to 1 on Render (ingress proxy) and 0 in local dev/test.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> `fix(security): eliminate x-forwarded-for spoofing via rightward trusted hop walking`
+**Commit:** 09d7584 `fix(security): eliminate x-forwarded-for spoofing via rightward trusted hop walking`
 **Next:** Item 7: dependency audit with pip-audit and secret scan with gitleaks.
 
 ---

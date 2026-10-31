@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — D1-3.4-fix — Secure reverse proxy IP extraction via rightward trusted hop walking
+## 09d7584 — D1-3.4-fix — Secure reverse proxy IP extraction via rightward trusted hop walking
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Eliminated X-Forwarded-For spoofing vulnerability in rate limiting by walking headers from the right and skipping TRUSTED_PROXY_HOPS. Added demo debug log and tests.
 **Files changed:**
