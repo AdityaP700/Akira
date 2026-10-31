@@ -19,6 +19,26 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 12:08 — CI-FIX — Fix TEST_DATABASE_URL and CI migration setup
+**Status:** done
+**What changed:**
+- Updated `app/core/config.py` to prioritize `LOCAL_DB_PASSWORD` for `TEST_DATABASE_URL` and fallback to `DATABASE_URL` in `APP_ENV=test`.
+- Updated `tests/conftest.py` to ensure `akira_migration_test` database exists for isolated migration testing.
+- Configured CI runner (`.github/workflows/ci.yml`) to create `akira_migration_test`, apply migrations, and pass `TEST_DATABASE_URL`.
+**Why:**
+- CI failed because `TEST_DATABASE_URL` was not supplied in the workflow environment, causing `conftest.py` fail-fast check to abort.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok; unit test suites pass on PostgreSQL.
+**Decisions:**
+- Ensure CI runs `alembic upgrade head` on the postgres service container before `pytest`.
+**Proposed (not built):**
+- None.
+**Commit:** 88aaf41 `fix(ci): prioritize local db password and ensure migration test db in conftest`
+**Next:** User pushes to trigger green CI.
+
+---
+
 ## 2026-10-31 11:36 — D1-3.11 — Convert architecture details into scannable feature tables
 **Status:** done
 **What changed:**

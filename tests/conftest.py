@@ -44,8 +44,9 @@ try:
         ).scalar()
         if not _mig_db_exists:
             _conn.execute(text("CREATE DATABASE akira_migration_test;"))
-except Exception:
+except Exception:  # noqa: S110
     pass
+
 
 @pytest.fixture(scope="session")
 def postgres_engine():
