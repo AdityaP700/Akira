@@ -49,8 +49,21 @@ jobs:
       - name: Run mypy type checking
         run: mypy app/domain app/services
 
+      - name: Setup test databases
+        run: |
+          python -c "import psycopg; conn = psycopg.connect('postgresql://postgres:postgrespassword@localhost:5432/postgres', autocommit=True); conn.execute('CREATE DATABASE akira_migration_test;')"
+
+      - name: Run migrations on test database
+        env:
+          MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgrespassword@localhost:5432/akira_test
+          DATABASE_URL: postgresql+psycopg://postgres:postgrespassword@localhost:5432/akira_test
+          APP_ENV: test
+        run: alembic upgrade head
+
       - name: Run pytest test suite
         env:
+          TEST_DATABASE_URL: postgresql+psycopg://postgres:postgrespassword@localhost:5432/akira_test
           DATABASE_URL: postgresql+psycopg://postgres:postgrespassword@localhost:5432/akira_test
+          MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgrespassword@localhost:5432/akira_test
           APP_ENV: test
         run: pytest -q --cov=app

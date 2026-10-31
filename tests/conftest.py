@@ -36,6 +36,16 @@ except Exception as e:
         "Tests must run on real PostgreSQL 16 and cannot fall back to SQLite."
     ) from e
 
+# Ensure migration test database exists for test_migrations.py
+try:
+    with create_engine(settings.TEST_DATABASE_URL, isolation_level="AUTOCOMMIT").connect() as _conn:
+        _mig_db_exists = _conn.execute(
+            text("SELECT 1 FROM pg_database WHERE datname = 'akira_migration_test';")
+        ).scalar()
+        if not _mig_db_exists:
+            _conn.execute(text("CREATE DATABASE akira_migration_test;"))
+except Exception:
+    pass
 
 @pytest.fixture(scope="session")
 def postgres_engine():

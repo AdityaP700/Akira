@@ -89,10 +89,13 @@ class Settings(BaseSettings):
             self.DATABASE_URL = (
                 f"postgresql+psycopg://postgres:{self.LOCAL_DB_PASSWORD}@localhost:5432/akira"
             )
-        if not self.TEST_DATABASE_URL.strip() and self.LOCAL_DB_PASSWORD.strip():
-            self.TEST_DATABASE_URL = (
-                f"postgresql+psycopg://postgres:{self.LOCAL_DB_PASSWORD}@localhost:5432/akira_test"
-            )
+        if not self.TEST_DATABASE_URL.strip():
+            if self.APP_ENV == "test" and self.DATABASE_URL.strip():
+                self.TEST_DATABASE_URL = self.DATABASE_URL
+            elif self.LOCAL_DB_PASSWORD.strip():
+                self.TEST_DATABASE_URL = (
+                    f"postgresql+psycopg://postgres:{self.LOCAL_DB_PASSWORD}@localhost:5432/akira_test"
+                )
 
         self.DATABASE_URL = _normalize_db_url(self.DATABASE_URL)
         self.MIGRATION_DATABASE_URL = _normalize_db_url(self.MIGRATION_DATABASE_URL)
