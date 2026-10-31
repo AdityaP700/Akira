@@ -19,6 +19,31 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 09:20 — SEC-CONFIG — Remove secret fallback defaults and enforce key validation
+**Status:** done
+**What changed:**
+- Removed all secret fallback defaults (`WEBHOOK_HMAC_KEY`, `AUDIT_HMAC_KEY`, `PII_ENC_KEY`, `PII_BLIND_INDEX_KEY` and key IDs) from `app/core/config.py` for every environment except `APP_ENV=test`.
+- Added startup fail-fast validation in `dev`, `demo`, and `prod`: missing secret keys or key IDs immediately halt startup with an error naming the missing variables (never their values).
+- Enforced strict 32-byte length (64 hex characters) and valid hexadecimal format for all cryptographic keys at startup.
+- Isolated Alembic migrations (`ALEMBIC_MIGRATION_RUNNING` and CLI context): Alembic only requires `MIGRATION_DATABASE_URL` and does not require HMAC/AES secrets.
+- Added database URL normalization for `postgres://` and `postgresql://` to `postgresql+psycopg://` in `app/core/config.py` and `alembic/env.py`.
+- Made `scripts/init_db_roles.sql` table grants idempotent (`IF EXISTS (SELECT FROM pg_tables ...)`).
+- Added comprehensive unit test suite in `tests/unit/test_config_security.py` (18 tests) covering missing keys, format/length validation, and Alembic isolation.
+**Why:**
+- Close credential leakage risks from hardcoded development keys and prevent silent fallback in production/demo environments.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok; `pytest tests/unit/test_config_security.py` -> 18 passed; `pytest -q --cov=app` -> 193 passed on PostgreSQL 16 (93% coverage).
+**Decisions:**
+- `APP_ENV=test` populates deterministic fallback keys to keep unit test suites DB- and credential-isolated.
+- Alembic context detected via `ALEMBIC_MIGRATION_RUNNING` flag and CLI binary name.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> `fix(security): remove secret defaults, enforce key length/format and decouple alembic`
+**Next:** User runs migrations and role script against Neon.
+
+---
+
 ## 2026-10-31 08:30 — D1-3.9 — README rewrite with brand logo, demo walkthrough guide and deployment architecture
 **Status:** done
 **What changed:**

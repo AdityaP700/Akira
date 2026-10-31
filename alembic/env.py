@@ -1,4 +1,7 @@
+import os
 from logging.config import fileConfig
+
+os.environ["ALEMBIC_MIGRATION_RUNNING"] = "1"
 
 import sqlalchemy as sa
 from sqlalchemy import engine_from_config, pool
@@ -16,8 +19,20 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def _normalize_db_url(url: str) -> str:
+    """Normalize legacy postgres:// or standard postgresql:// to postgresql+psycopg://."""
+    if not url:
+        return url
+    trimmed = url.strip()
+    if trimmed.startswith("postgres://"):
+        return "postgresql+psycopg://" + trimmed[len("postgres://") :]
+    if trimmed.startswith("postgresql://"):
+        return "postgresql+psycopg://" + trimmed[len("postgresql://") :]
+    return trimmed
+
+
 def run_migrations_offline() -> None:
-    url = (
+    url = _normalize_db_url(
         config.get_main_option("sqlalchemy.url")
         or settings.MIGRATION_DATABASE_URL
         or settings.DATABASE_URL
@@ -35,11 +50,15 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section, {})
-    url = (
+    url = _normalize_db_url(
         config.get_main_option("sqlalchemy.url")
         or settings.MIGRATION_DATABASE_URL
         or settings.DATABASE_URL
     )
+    if not url:
+        raise ValueError(
+            "Alembic requires a database URL. Please set MIGRATION_DATABASE_URL or DATABASE_URL."
+        )
     configuration["sqlalchemy.url"] = url
 
     connectable = engine_from_config(

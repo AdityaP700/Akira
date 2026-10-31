@@ -24,6 +24,37 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## pending — SEC-CONFIG — Remove secret fallback defaults and enforce key validation
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Removed hardcoded secret fallback defaults from config for dev/demo/prod. Added fail-fast startup validation for missing keys, 32-byte hex validation, and decoupled Alembic migrations so schema upgrades only require database URLs.
+**Files changed:**
+- `app/core/config.py`: Removed all secret defaults; added fail-fast validation and 32-byte hex checks; added URL normalization for `postgres://`.
+- `alembic/env.py`: Sets `ALEMBIC_MIGRATION_RUNNING` and normalizes database URLs.
+- `scripts/init_db_roles.sql`: Idempotent table privileges with `IF EXISTS` check.
+- `tests/conftest.py`: Explicitly default `APP_ENV=test`.
+- `tests/unit/test_config_security.py`: 18 tests for fail-fast validation, format, length, and Alembic isolation.
+- `CHANGELOG.md`: Logged changes.
+- `REVIEW_NOTES.md`: Logged changes.
+**Behaviour before → after:**
+- Before: Missing secret keys in dev/demo fell back to hardcoded dummy values.
+- After: Startup immediately fails naming missing variables (never values) in dev/demo/prod. Keys must be exactly 32 bytes hex. Alembic runs without encryption keys.
+**How to verify:**
+1. Run config security tests:
+   `pytest tests/unit/test_config_security.py` (18 passed).
+2. Run full Postgres test suite:
+   `pytest -q --cov=app` (193 passed).
+**Risks / things to look at closely:**
+- Error messages never expose secret values.
+**Expected follow-up:**
+- None.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## aa3e15f — D1-3.9 — README rewrite with brand logo, demo walkthrough guide and deployment architecture
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Added brand logo, rewrote README.md into engaging narrative chapters, added Render ↔ Neon TLS deployment architecture, and added a 7-step critical demo screenshot guide.

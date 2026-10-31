@@ -1,5 +1,9 @@
 """Global pytest fixtures and configuration for PostgreSQL 16 test suite."""
 
+import os
+
+os.environ.setdefault("APP_ENV", "test")
+
 from collections.abc import Generator
 
 import pytest

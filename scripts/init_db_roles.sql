@@ -60,23 +60,29 @@ ALTER SCHEMA public OWNER TO app_owner;
 ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO app_rw;
 
--- Tables: General Read/Write tables
-GRANT SELECT, INSERT, UPDATE ON TABLE users TO app_rw;
-GRANT SELECT, INSERT, UPDATE ON TABLE user_pii TO app_rw;
-GRANT SELECT, INSERT, UPDATE ON TABLE groups TO app_rw;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE group_members TO app_rw;
-GRANT SELECT, INSERT, UPDATE ON TABLE expenses TO app_rw;
-GRANT SELECT, INSERT, UPDATE ON TABLE settlements TO app_rw;
-GRANT SELECT, INSERT, UPDATE ON TABLE idempotency_keys TO app_rw;
+-- Tables: Apply table privileges if tables already exist (or after migrations run)
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users') THEN
+        -- General Read/Write tables
+        GRANT SELECT, INSERT, UPDATE ON TABLE users TO app_rw;
+        GRANT SELECT, INSERT, UPDATE ON TABLE user_pii TO app_rw;
+        GRANT SELECT, INSERT, UPDATE ON TABLE groups TO app_rw;
+        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE group_members TO app_rw;
+        GRANT SELECT, INSERT, UPDATE ON TABLE expenses TO app_rw;
+        GRANT SELECT, INSERT, UPDATE ON TABLE settlements TO app_rw;
+        GRANT SELECT, INSERT, UPDATE ON TABLE idempotency_keys TO app_rw;
 
--- Tables: Append-only tables (STRICTLY NO UPDATE, NO DELETE for runtime app)
-GRANT SELECT, INSERT ON TABLE ledger_entries TO app_rw;
-GRANT SELECT, INSERT ON TABLE expense_shares TO app_rw;
-GRANT SELECT, INSERT ON TABLE provider_events TO app_rw;
+        -- Append-only tables (STRICTLY NO UPDATE, NO DELETE for runtime app)
+        GRANT SELECT, INSERT ON TABLE ledger_entries TO app_rw;
+        GRANT SELECT, INSERT ON TABLE expense_shares TO app_rw;
+        GRANT SELECT, INSERT ON TABLE provider_events TO app_rw;
 
--- Table: Notifications (SELECT, INSERT, UPDATE on read_at only)
-GRANT SELECT, INSERT ON TABLE notifications TO app_rw;
-GRANT UPDATE (read_at) ON TABLE notifications TO app_rw;
+        -- Notifications (SELECT, INSERT, UPDATE on read_at only)
+        GRANT SELECT, INSERT ON TABLE notifications TO app_rw;
+        GRANT UPDATE (read_at) ON TABLE notifications TO app_rw;
 
--- Sequences usage for autoincrement primary keys
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_rw;
+        -- Sequences usage for autoincrement primary keys
+        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_rw;
+    END IF;
+END $$;
