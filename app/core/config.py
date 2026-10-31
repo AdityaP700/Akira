@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTHENTICATED: str = "60/minute"
     RATE_LIMIT_SETTLEMENTS: str = "10/minute"
     MAX_REQUEST_BODY_BYTES: int = 65536  # 64 KB
+    TRUSTED_PROXY_HOPS: int | None = None
 
     # Webhook HMAC Configuration (Mock Payment Provider)
     WEBHOOK_HMAC_KEY: str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -50,6 +51,9 @@ class Settings(BaseSettings):
             self.TEST_DATABASE_URL = (
                 f"postgresql+psycopg://postgres:{self.LOCAL_DB_PASSWORD}@localhost:5432/akira_test"
             )
+
+        if self.TRUSTED_PROXY_HOPS is None:
+            self.TRUSTED_PROXY_HOPS = 1 if self.APP_ENV in ("demo", "prod") else 0
 
         is_test = (
             self.APP_ENV == "test" or "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ

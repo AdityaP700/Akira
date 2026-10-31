@@ -24,6 +24,33 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — D1-3.4-fix — Secure reverse proxy IP extraction via rightward trusted hop walking
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Eliminated X-Forwarded-For spoofing vulnerability in rate limiting by walking headers from the right and skipping TRUSTED_PROXY_HOPS. Added demo debug log and tests.
+**Files changed:**
+- `app/core/config.py`: Added `TRUSTED_PROXY_HOPS` setting defaulting to 1 in demo/prod and 0 in dev/test.
+- `app/security/ratelimit.py`: Updated `get_client_ip` to extract IP from rightmost trusted proxy hop and emit one-time debug log in demo.
+- `tests/api/test_edge_hardening.py`: Added tests for spoofing defense, multi-hop chains, hops=0, and distinct rate limit buckets.
+**Behaviour before → after:**
+- Before: Leftmost IP was extracted, allowing a malicious client to inject fake IPs and evade rate limiting.
+- After: The address appended by the trusted proxy (rightmost trusted hop) is extracted; client-injected headers are ignored.
+**How to verify:**
+1. Run spoofing defense tests:
+   `pytest tests/api/test_edge_hardening.py -k "spoofing or hops_zero or limited_separately"` (all passed)
+2. Run full test suite:
+   `pytest -q --cov=app` (175 passed)
+**Risks / things to look at closely:**
+- `TRUSTED_PROXY_HOPS` must match the actual reverse proxy hop count in deployment.
+**Expected follow-up:**
+- Run pip-audit and gitleaks (Item 7).
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## b95d3b6 — D1-3.6 — Document all environment variables in .env.example
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Updated .env.example with complete documentation and empty defaults for all settings including MIGRATION_DATABASE_URL and APP_ENV=demo.

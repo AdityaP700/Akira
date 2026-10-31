@@ -329,10 +329,10 @@ def test_db_timeout_returns_503_database_unavailable(edge_client: TestClient) ->
         assert "request_id" in data["error"]
 
 
-def test_forwarded_client_ip_extraction_behind_proxy() -> None:
-    """Verify get_client_ip correctly resolves leftmost client IP from X-Forwarded-For
+def test_forwarded_client_ip_spoofing_defense() -> None:
+    """Verify get_client_ip walks from the right skipping TRUSTED_PROXY_HOPS,
 
-    under Render's reverse proxy trust model.
+    ensuring client-spoofed leftmost entries cannot bypass rate limits.
     """
     from starlette.datastructures import Headers
 
@@ -347,14 +347,91 @@ def test_forwarded_client_ip_extraction_behind_proxy() -> None:
             self.client = DummyClient()
             self.client.host = client_host
 
-    # 1. Single forwarded IP
-    req1 = DummyRequest({"X-Forwarded-For": "203.0.113.195"})
-    assert get_client_ip(req1) == "203.0.113.195"
+    orig_hops = settings.TRUSTED_PROXY_HOPS
+    try:
+        # With 1 trusted proxy hop (e.g. Render edge):
+        settings.TRUSTED_PROXY_HOPS = 1
 
-    # 2. Multi-hop proxy chain: client, proxy1, proxy2 -> extracts leftmost client IP
-    req2 = DummyRequest({"X-Forwarded-For": "198.51.100.42, 10.100.0.1, 172.16.0.5"})
-    assert get_client_ip(req2) == "198.51.100.42"
+        # 1. Attacker prepends fake IP "1.1.1.1"; proxy appends real IP "203.0.113.50"
+        req_spoofed = DummyRequest({"X-Forwarded-For": "1.1.1.1, 203.0.113.50"})
+        # Leftmost "1.1.1.1" MUST be ignored; real IP "203.0.113.50" MUST be returned
+        assert get_client_ip(req_spoofed) == "203.0.113.50"
 
-    # 3. Absent X-Forwarded-For falls back to direct client host
-    req3 = DummyRequest({}, client_host="192.168.1.10")
-    assert get_client_ip(req3) == "192.168.1.10"
+        # 2. Multi-hop proxy chain: client prepends "attacker.fake", real client is "198.51.100.42",
+        # followed by internal proxy "10.0.0.1". With hops=2, index is -2.
+        settings.TRUSTED_PROXY_HOPS = 2
+        req_multi = DummyRequest({"X-Forwarded-For": "attacker.fake, 198.51.100.42, 10.0.0.1"})
+        assert get_client_ip(req_multi) == "198.51.100.42"
+
+        # 3. Fewer entries than hops falls back to request.client.host
+        settings.TRUSTED_PROXY_HOPS = 3
+        req_short = DummyRequest({"X-Forwarded-For": "198.51.100.42"}, client_host="10.0.0.9")
+        assert get_client_ip(req_short) == "10.0.0.9"
+
+        # 4. Missing header falls back to request.client.host
+        req_missing = DummyRequest({}, client_host="10.0.0.9")
+        assert get_client_ip(req_missing) == "10.0.0.9"
+    finally:
+        settings.TRUSTED_PROXY_HOPS = orig_hops
+
+
+def test_hops_zero_ignores_x_forwarded_for_entirely() -> None:
+    """When TRUSTED_PROXY_HOPS=0 (dev/test), X-Forwarded-For is ignored completely."""
+    from starlette.datastructures import Headers
+
+    from app.security.ratelimit import get_client_ip
+
+    class DummyClient:
+        host = "127.0.0.1"
+
+    class DummyRequest:
+        def __init__(self, headers: dict[str, str], client_host: str = "127.0.0.1"):
+            self.headers = Headers(headers)
+            self.client = DummyClient()
+            self.client.host = client_host
+
+    orig_hops = settings.TRUSTED_PROXY_HOPS
+    try:
+        settings.TRUSTED_PROXY_HOPS = 0
+        req = DummyRequest(
+            {"X-Forwarded-For": "203.0.113.195, 10.0.0.1"}, client_host="192.168.1.5"
+        )
+        # Ignores header and uses client.host
+        assert get_client_ip(req) == "192.168.1.5"
+    finally:
+        settings.TRUSTED_PROXY_HOPS = orig_hops
+
+
+def test_two_clients_with_different_real_ips_are_limited_separately(
+    edge_client: TestClient,
+) -> None:
+    """Two clients with identical spoofed leftmost headers but different real IPs
+
+    are tracked in distinct rate limiting buckets.
+    """
+    orig_hops = settings.TRUSTED_PROXY_HOPS
+    orig_enabled = limiter.enabled
+    try:
+        settings.TRUSTED_PROXY_HOPS = 1
+        limiter.enabled = True
+
+        # Client A: spoofed 1.1.1.1, real 203.0.113.10
+        # Client B: spoofed 1.1.1.1, real 203.0.113.20
+        headers_a = {"X-Forwarded-For": "1.1.1.1, 203.0.113.10"}
+        headers_b = {"X-Forwarded-For": "1.1.1.1, 203.0.113.20"}
+
+        # Client A consumes registration quota (limit is 5/minute)
+        for _ in range(5):
+            res_a = edge_client.post("/users", json={"name": "User A"}, headers=headers_a)
+            assert res_a.status_code == 201
+
+        # 6th request from Client A is rate limited
+        blocked_a = edge_client.post("/users", json={"name": "User A Exceeded"}, headers=headers_a)
+        assert blocked_a.status_code == 429
+
+        # Client B has separate real IP so its quota is NOT exhausted
+        res_b = edge_client.post("/users", json={"name": "User B"}, headers=headers_b)
+        assert res_b.status_code == 201
+    finally:
+        settings.TRUSTED_PROXY_HOPS = orig_hops
+        limiter.enabled = orig_enabled

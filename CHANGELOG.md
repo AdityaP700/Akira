@@ -19,6 +19,27 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 08:10 — D1-3.4-fix — Secure reverse proxy IP extraction via rightward trusted hop walking
+**Status:** done
+**What changed:**
+- Replaced vulnerable leftmost `X-Forwarded-For` parsing in `app/security/ratelimit.py` with rightward trusted proxy walking using `TRUSTED_PROXY_HOPS` (default 1 in demo/prod, 0 in dev/test).
+- If `TRUSTED_PROXY_HOPS <= 0` or header is missing / has fewer entries than expected, securely falls back to `request.client.host`.
+- Added one-time startup debug log in `demo` profile (no PII beyond IP) to inspect incoming proxy headers on deployment.
+- Added comprehensive security tests in `tests/api/test_edge_hardening.py` confirming client-spoofed leftmost entries are ignored, two clients with different real IPs are rate limited separately, and hops=0 ignores the header.
+**Why:**
+- Close spoofing vulnerability where malicious clients could spoof leftmost `X-Forwarded-For` to bypass rate limits.
+**Not done / failed (and why):**
+- None.
+**Tests:** `pytest tests/api/test_edge_hardening.py` -> 18 passed; `make lint` -> ok; `pytest -q --cov=app` -> 175 passed.
+**Decisions:**
+- `TRUSTED_PROXY_HOPS` configurable via environment; defaults to 1 on Render (ingress proxy) and 0 in local dev/test.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> `fix(security): eliminate x-forwarded-for spoofing via rightward trusted hop walking`
+**Next:** Item 7: dependency audit with pip-audit and secret scan with gitleaks.
+
+---
+
 ## 2026-10-31 08:02 — D1-3.6 — Document all environment variables in .env.example
 **Status:** done
 **What changed:**
