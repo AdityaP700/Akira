@@ -32,7 +32,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - All secret values left empty in `.env.example` with instructions on using `python -c "import secrets; print(secrets.token_hex(32))"`.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> `docs(config): update .env.example with migration url and demo variables`
+**Commit:** b95d3b6 `docs(config): update .env.example with migration url and demo variables`
 **Next:** D1 Part 3 Item 7: ask user before installing pip-audit and gitleaks, then run audits.
 
 ---

@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — D1-3.6 — Document all environment variables in .env.example
+## b95d3b6 — D1-3.6 — Document all environment variables in .env.example
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Updated .env.example with complete documentation and empty defaults for all settings including MIGRATION_DATABASE_URL and APP_ENV=demo.
 **Files changed:**
