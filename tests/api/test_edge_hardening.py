@@ -327,3 +327,34 @@ def test_db_timeout_returns_503_database_unavailable(edge_client: TestClient) ->
         assert data["error"]["code"] == "DATABASE_UNAVAILABLE"
         assert "Database connection failed or timed out" in data["error"]["message"]
         assert "request_id" in data["error"]
+
+
+def test_forwarded_client_ip_extraction_behind_proxy() -> None:
+    """Verify get_client_ip correctly resolves leftmost client IP from X-Forwarded-For
+
+    under Render's reverse proxy trust model.
+    """
+    from starlette.datastructures import Headers
+
+    from app.security.ratelimit import get_client_ip
+
+    class DummyClient:
+        host = "10.0.0.2"
+
+    class DummyRequest:
+        def __init__(self, headers: dict[str, str], client_host: str = "10.0.0.2"):
+            self.headers = Headers(headers)
+            self.client = DummyClient()
+            self.client.host = client_host
+
+    # 1. Single forwarded IP
+    req1 = DummyRequest({"X-Forwarded-For": "203.0.113.195"})
+    assert get_client_ip(req1) == "203.0.113.195"
+
+    # 2. Multi-hop proxy chain: client, proxy1, proxy2 -> extracts leftmost client IP
+    req2 = DummyRequest({"X-Forwarded-For": "198.51.100.42, 10.100.0.1, 172.16.0.5"})
+    assert get_client_ip(req2) == "198.51.100.42"
+
+    # 3. Absent X-Forwarded-For falls back to direct client host
+    req3 = DummyRequest({}, client_host="192.168.1.10")
+    assert get_client_ip(req3) == "192.168.1.10"

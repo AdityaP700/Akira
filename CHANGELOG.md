@@ -19,6 +19,26 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 07:58 — D1-3.4 — Forwarded client IP rate limiting with documented proxy trust
+**Status:** done
+**What changed:**
+- Implemented `get_client_ip` in `app/security/ratelimit.py` to inspect `X-Forwarded-For` and extract the leftmost original client IP behind Render's reverse proxy.
+- Documented the reverse proxy trust assumption: Render terminates TLS at edge ingress, appends/sanitizes `X-Forwarded-For`, and forwards to container over private network.
+- Added automated unit and edge tests in `tests/api/test_edge_hardening.py` covering single IP, multi-hop proxy chains, and local fallback.
+**Why:**
+- Comply with D1 Part 3 Item 4 and OWASP API4: prevent all clients sharing Render's proxy IP from exhausting a shared rate limit pool.
+**Not done / failed (and why):**
+- None.
+**Tests:** `pytest tests/api/test_edge_hardening.py` -> 16 passed; `make lint` -> ok; `pytest -q --cov=app` -> 173 passed.
+**Decisions:**
+- Leftmost non-empty token in `X-Forwarded-For` identifies the originating client; falls back to `request.client.host` or `'127.0.0.1'`.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> `feat(security): forward client ip rate limiting with documented proxy trust`
+**Next:** D1 Part 3 Item 5: render.yaml deployment configuration.
+
+---
+
 ## 2026-10-31 07:52 — D1-3.3 — Add container start.sh entrypoint with migrations and proxy-headers
 **Status:** done
 **What changed:**

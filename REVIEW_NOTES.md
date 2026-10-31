@@ -24,6 +24,32 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — D1-3.4 — Forwarded client IP rate limiting with documented proxy trust
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Configured rate limiting to key on forwarded client IP from X-Forwarded-For behind Render's reverse proxy, with documented trust assumptions.
+**Files changed:**
+- `app/security/ratelimit.py`: Added `get_client_ip` parsing `X-Forwarded-For` leftmost client IP with fallback to `request.client.host`.
+- `tests/api/test_edge_hardening.py`: Added test verifying single-hop, multi-hop, and direct IP extraction.
+**Behaviour before → after:**
+- Before: `get_remote_address` relied solely on `request.client.host`, which could group all clients under the proxy's IP if proxy headers weren't populated.
+- After: `get_client_ip` explicitly extracts the originating client IP from `X-Forwarded-For`, isolating rate limit quotas per real client.
+**How to verify:**
+1. Run test suite:
+   `pytest tests/api/test_edge_hardening.py -k test_forwarded_client_ip_extraction_behind_proxy` (passed)
+2. Run full test suite:
+   `pytest -q --cov=app` (173 passed)
+**Risks / things to look at closely:**
+- Trust assumption: Render's ingress proxy sanitizes and appends to X-Forwarded-For.
+**Expected follow-up:**
+- Item 5: render.yaml deployment blueprint.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 9dc2ae6 — D1-3.3 — Add container start.sh entrypoint with migrations and proxy-headers
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Added scripts/start.sh entrypoint script running migrations then uvicorn with proxy headers under non-root appuser in Dockerfile.
