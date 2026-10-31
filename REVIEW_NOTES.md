@@ -24,6 +24,30 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## a130eb9 — D1-3.11 — Convert architecture details into scannable feature tables
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Restructured the "How it works" subsections (Correctness, Protection, and Auditability) from dense bullet points into clean, scannable 3-column tables, drastically lowering cognitive load while keeping all architectural guarantees intact.
+**Files changed:**
+- `README.md`: Converted narrative bullet walls into 3-column tables (Concern / Mechanism / Guarantee).
+- `CHANGELOG.md`: Logged changes.
+- `REVIEW_NOTES.md`: Logged changes.
+**Behaviour before → after:**
+- Before: Long technical paragraphs caused visual crowding and cognitive overload.
+- After: Clean, high-contrast tables present core architectural mechanisms and guarantees at a glance.
+**How to verify:**
+1. View `README.md` under `How it works` to verify the table layout renders cleanly and effortlessly.
+**Risks / things to look at closely:**
+- None; presentation formatting only.
+**Expected follow-up:**
+- Project ready for submission.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## ae3fa84 — D1-3.10 — Add table of contents and update video URL with GitHub asset link
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Added a Table of Contents to README for streamlined navigation across all sections, and updated the walkthrough demo video embed and table links to the GitHub user-attachments asset URL for native playback on GitHub.

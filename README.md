@@ -127,24 +127,28 @@ API on `http://localhost:8000`, docs on `/docs`. Seed the Goa trip with `python 
 <details>
 <summary><b>Correct: getting the arithmetic right</b></summary>
 
-- **Integer paise.** Floats never touch money; an AST-based test fails the build if one appears in money paths. Rupee strings exist only at the API edge.
-- **Deterministic rounding.** Leftover paise go one each to participants in ascending user order, so shares always sum to the amount.
-- **Frozen shares.** `expense_shares` stores what each participant owed when the expense was recorded. Late joiners never change past expenses. The same table supports `EXACT` amounts and `SHARES` weights (e.g. 2:1:1).
-- **Derived balances.** There is no balances table; balances are computed from expenses, shares and completed settlements, so they can't drift. Net balances always sum to zero.
-- **One writer per group.** Every write first runs `SELECT … FROM groups WHERE id = :id FOR UPDATE`. Writes to one group queue up; different groups run in parallel.
-- **Idempotency.** Writes accept `Idempotency-Key`. Same key + same body returns the stored response; same key + different body returns `422`.
-- **Settle-up (enhancement).** Greedy matching of the largest debtor with the largest creditor, deterministic tie-breaks, at most n − 1 transfers. It is a suggestion: finding the true minimum is NP-hard, and greedy is predictable and good in practice. Pure function in `app/domain/settle.py`.
+| Concern | How Akira solves it | Impact / Guarantee |
+|---|---|---|
+| **Float errors** | Integer paise throughout (`int`); AST checks ban floats | Zero rounding drift; exact rupee strings at API edge only |
+| **Odd division** | Deterministic 1-paisa distribution by user order | ₹1,000 ÷ 3 = ₹333.34 + ₹333.33 + ₹333.33 (never ₹999.99) |
+| **Late joiners** | Frozen `expense_shares` captured at creation time | Past expenses never change when group membership updates |
+| **Balance drift** | Balances computed on-the-fly from history (no balance table) | Conservation of money: net balances always sum to zero |
+| **Concurrent writes** | `SELECT … FROM groups WHERE id = :id FOR UPDATE` | One writer per group; different groups execute in parallel |
+| **Network retries** | `Idempotency-Key` header with cached response | Retried requests return identical response without duplicate side-effects |
+| **Debt resolution** | Greedy settle-up algorithm (largest debtor to creditor) | Minimizes transfer count (at most n - 1 payments) |
 
 </details>
 
 <details>
 <summary><b>Protected: keeping the wrong people out</b></summary>
 
-- **Tokens.** Issued once at signup, stored as SHA-256 hashes, compared in constant time, rotatable via `POST /users/me/token/rotate`.
-- **Membership on every group route.** Non-members get `404` so group ids can't be probed (OWASP API1, BOLA).
-- **Strict input.** 64 KB body cap (`413`), JSON only (`415`), unknown fields rejected (`422`), rate limits (`429` + `Retry-After`).
-- **Client IP behind proxies.** Read from the right of `X-Forwarded-For`, skipping `TRUSTED_PROXY_HOPS`, so a spoofed leftmost value is ignored.
-- **Settlement state machine.**
+| Layer | Defense mechanism | Guarantee |
+|---|---|---|
+| **Authentication** | SHA-256 hashed bearer tokens, constant-time compare | One-time token issue at signup; rotatable via `/users/me/token/rotate` |
+| **Object authorization** | Group membership guard on every group route | Non-members receive `404 NOT_FOUND` (defends against BOLA probing) |
+| **Input hardening** | 64 KB body cap (`413`), strict JSON (`415`), forbidden extra fields (`422`) | Defends against memory exhaustion, schema bypass, and prototype pollution |
+| **Abuse / Rate limit** | Sliding-window limiter with right-walked `X-Forwarded-For` | Spoofed client headers ignored; trusted proxy hop enforcement (`429`) |
+| **PII Privacy** | AES-256-GCM encryption with HMAC-SHA256 blind index | UPI VPAs stored ciphertext; exact search without decryption; masked in output |
 
 ```mermaid
 flowchart LR
@@ -158,16 +162,18 @@ flowchart LR
     end
 ```
 
-  Only `SUCCESS` and `CONFIRMED` change balances. Webhooks are verified with HMAC-SHA256 over timestamp + raw body, a 300-second window, and a unique event id, so forged or replayed callbacks are rejected. The provider is called outside the database transaction; if a callback is missed, `…/refresh` asks the provider for status.
-- **Encrypted UPI IDs.** AES-256-GCM with a random nonce and the user's public id as associated data. A keyed blind index enforces uniqueness without decryption. Responses show only the masked form.
+> **Lifecycle note:** Only `SUCCESS` and `CONFIRMED` settlements alter balances. Webhook callbacks require valid HMAC-SHA256 signatures, unique event IDs, and a 300-second timestamp window to prevent replay attacks.
 
 </details>
 
 <details>
 <summary><b>Provable: detecting changes to history</b></summary>
 
-- **Append-only at the database level.** The API connects as `app_rw`, which has no `UPDATE` or `DELETE` on `ledger_entries`, `expense_shares` or `provider_events`. Migrations run as a separate `app_owner` role.
-- **HMAC hash chain.** Each money event is appended to `ledger_entries` with `hash_n = HMAC(key, hash_{n-1} ‖ entry_n)`, under the group lock. `GET /groups/{id}/audit/verify` recomputes the chain and reports where it breaks. The key lives outside the database, so someone with only database access can't forge hashes.
+| Audit layer | Implementation | Guarantee |
+|---|---|---|
+| **Least-privilege role** | Runtime connects as `app_rw` | Zero `UPDATE` or `DELETE` grants on ledger, shares, or webhook events |
+| **HMAC hash chain** | `hash_n = HMAC(key, hash_{n-1} ‖ entry_n)` | Tampering with any row breaks verification (`GET /groups/{id}/audit/verify`) |
+| **Key separation** | HMAC key stored in external environment | Compromised DB dump cannot forge valid signature hashes |
 
 </details>
 

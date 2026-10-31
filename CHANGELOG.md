@@ -19,6 +19,25 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 11:36 — D1-3.11 — Convert architecture details into scannable feature tables
+**Status:** done
+**What changed:**
+- Replaced dense text in `README.md` ("How it works" subsections: Correct, Protected, Provable) with scannable 3-column tables (Concern / Mechanism / Guarantee).
+- Retained the settlement state machine diagram with a concise lifecycle callout.
+**Why:**
+- Drastically reduce cognitive overload for reviewers and enhance visual clarity.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok.
+**Decisions:**
+- Use markdown tables to present mechanisms and guarantees side-by-side.
+**Proposed (not built):**
+- None.
+**Commit:** a130eb9 `docs: simplify architecture section with scannable feature tables`
+**Next:** Ready for final project submission.
+
+---
+
 ## 2026-10-31 11:28 — D1-3.10 — Add table of contents and update video URL with GitHub asset link
 **Status:** done
 **What changed:**
