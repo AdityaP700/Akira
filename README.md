@@ -133,23 +133,49 @@ The code is split into layers. Each layer has one job, and inner layers never im
 
 ```mermaid
 flowchart TD
-    API["api<br/>HTTP routes and schemas"] --> SVC["services<br/>one use case, one transaction"]
-    SEC["security<br/>tokens, membership, limits, encryption"] -.-> API
-    SVC --> DOM["domain<br/>pure money logic"]
-    SVC --> REPO["repositories<br/>SQL access"]
-    SVC --> ADP["adapters<br/>payment provider, keys, notifier"]
+    MW["Middleware in app/main.py<br/>logging, body and JSON limits, rate limit, security headers"]
+    subgraph API["app/api: HTTP only"]
+        R["routers/<br/>10 files, 25 routes"]
+        SC["schemas/<br/>request and response models"]
+        D["deps.py<br/>token to actor, db session, providers"]
+    end
+    subgraph SVC["app/services: one transaction per use case"]
+        S["users, groups, expenses, balances,<br/>settlements, notifications, audit"]
+    end
+    subgraph DOM["app/domain: pure logic, no I/O"]
+        DM["money, splits, balances, settle,<br/>settlement_state, audit"]
+    end
+    subgraph REPO["app/repositories: SQL only"]
+        RP["models, users, groups, expenses, settlements,<br/>ledger, idempotency, notifications"]
+    end
+    subgraph ADP["app/adapters: swappable"]
+        AD["payment_provider, keys, notifier"]
+    end
+    SEC["app/security<br/>auth, guards, pii, signatures, ratelimit, masking, edge"]
+    MW --> R
+    R --> D
+    R --> S
+    S --> DM
+    S --> RP
+    S --> AD
+    SEC -.-> D
+    SEC -.-> S
+    RP --> DB[("PostgreSQL 16")]
 ```
 
-```text
-app/
-├── api/           routers and request/response schemas
-├── services/      use cases; each owns exactly one transaction
-├── domain/        pure money logic: splits, balances, settle-up, settlement states
-├── repositories/  SQL access; never commits on its own
-├── adapters/      payment provider, key provider, notifier (swappable)
-├── security/      tokens, membership guard, rate limits, encryption, signatures
-└── core/          config, errors, logging, public ids, pagination
-```
+**Where to find what:**
+
+| Folder | Files | Responsibility |
+|---|---|---|
+| `api/routers/` | `health`, `users`, `groups`, `expenses`, `balances`, `settlements`, `notifications`, `audit`, `webhooks`, `dev` | Parse the request, call one service, return the response |
+| `api/schemas/` | One file per resource | Pydantic models; unknown fields are rejected |
+| `api/deps.py` | `get_db`, `get_actor`, provider getters | Turns a Bearer token into a user; injects adapters |
+| `services/` | One file per resource | Opens the transaction, takes the group lock, runs the use case |
+| `domain/` | `money`, `splits`, `balances`, `settle`, `settlement_state`, `audit` | Paise parsing, split strategies, netting, settle-up, state transitions, chain hashing |
+| `repositories/` | `models` plus one file per table group | SQL access; never commits |
+| `security/` | `auth`, `guards`, `pii`, `signatures`, `ratelimit`, `masking`, `edge` | Tokens, membership and lock, encryption, webhook HMAC, client IP, log redaction, input limits |
+| `adapters/` | `payment_provider`, `keys`, `notifier` | Each is a `Protocol` with one implementation today (`MockPaymentProvider`, `EnvKeyProvider`, `DbNotifier`) |
+| `core/` | `config`, `db`, `errors`, `logging`, `ids`, `pagination` | Settings, sessions, error envelope, request ids, public ids, cursors |
 
 **Three rules hold it together:**
 
@@ -168,23 +194,80 @@ app/
 
 The `SHARES` split (weights like 2:1:1) was added late in the project exactly this way, without touching existing split or balance code.
 
+**How one request is routed.** This is `POST /groups/{group_id}/expenses`, file by file. Every write follows the same shape.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant MW as Middleware
+    participant RT as routers/expenses.py
+    participant DP as deps.get_actor
+    participant SV as services/expenses.py
+    participant GD as security/guards.py
+    participant DM as domain/money, splits
+    participant RP as repositories
+    participant DB as PostgreSQL
+    C->>MW: POST /groups/{group_id}/expenses
+    MW->>MW: body size, JSON, rate limit
+    MW->>RT: request
+    RT->>DP: Bearer token
+    DP-->>RT: actor, or 401
+    RT->>SV: create_expense(payload, actor, Idempotency-Key)
+    SV->>DB: BEGIN
+    SV->>GD: require_member_and_lock
+    GD->>DB: SELECT ... FROM groups FOR UPDATE
+    GD-->>SV: group, or 404 for non-members
+    SV->>RP: look up idempotency key
+    alt key already used with the same body
+        RP-->>SV: stored response
+        SV-->>C: same 201 as before
+    else new request
+        SV->>DM: parse_rupees, get_strategy(split_type)
+        DM-->>SV: shares in paise
+        SV->>RP: insert expense and shares
+        SV->>RP: ledger.append (HMAC-chained)
+        SV->>RP: notification and idempotency record
+        SV->>DB: COMMIT, lock released
+        SV-->>C: 201 Created
+    end
+```
+
 ---
 
 ## 5. API design
 
-Akira exposes 25 routes, grouped by resource. The brief's suggested routes are all supported; the extra routes come from authentication, the settlement lifecycle and auditing.
+Akira exposes 25 routes across 10 router files. The brief's suggested routes are all supported; the extra routes come from authentication, the settlement lifecycle and auditing.
 
-| Resource | Routes | Purpose |
+```mermaid
+flowchart LR
+    C(("Client"))
+    C --> U["users.py<br/>sign up, list, me, UPI ID, rotate token"]
+    C --> N["notifications.py<br/>feed, mark read"]
+    C --> G["groups.py<br/>create, add member, list members"]
+    C --> E["expenses.py<br/>add, add (brief alias), list"]
+    C --> B["balances.py<br/>group balances, all balances, settle-up"]
+    C --> S["settlements.py<br/>pay, list, confirm, reject, refresh"]
+    C --> A["audit.py<br/>verify chain"]
+    P(("Payment provider")) --> W["webhooks.py<br/>signed callback"]
+    G -. "membership check" .- E
+    G -. "membership check" .- B
+    G -. "membership check" .- S
+    G -. "membership check" .- A
+```
+
+| Router | Routes | Purpose |
 |---|---|---|
-| Health | `GET /health` | Liveness and database check |
-| Users | `POST /users`, `GET /users`, `GET /users/me`, `PUT /users/me/vpa`, `POST /users/me/token/rotate` | Sign up (token shown once), profile, UPI ID, token rotation |
-| Notifications | `GET /users/me/notifications`, `POST /users/me/notifications/{id}/read` | In-app activity feed |
-| Groups | `POST /groups`, `POST /groups/{id}/members`, `GET /groups/{id}/members` | Create a group, add and list members |
-| Expenses | `POST /groups/{id}/expenses`, `POST /expenses`, `GET /groups/{id}/expenses` | Record and list expenses (`EQUAL`, `EXACT`, `SHARES`) |
-| Balances | `GET /groups/{id}/balances`, `GET /balances`, `GET /groups/{id}/settle-up` | Who owes whom, and the fewest payments to settle |
-| Settlements | `POST /groups/{id}/settlements`, `GET /groups/{id}/settlements`, `POST …/{sid}/confirm`, `POST …/{sid}/reject`, `POST …/{sid}/refresh` | Pay back by UPI or cash, confirm cash, check provider status |
-| Audit | `GET /groups/{id}/audit/verify` | Check the hash chain for tampering |
-| Payment provider | `POST /webhooks/mock-provider`, `POST /dev/mock-provider/pay/{reference}` | Signed provider callback; demo-only payment simulator |
+| `health.py` | `GET /health` | Liveness and database check |
+| `users.py` | `POST /users`, `GET /users`, `GET /users/me`, `PUT /users/me/vpa`, `POST /users/me/token/rotate` | Sign up (token shown once), profile, UPI ID, token rotation |
+| `notifications.py` | `GET /users/me/notifications`, `POST /users/me/notifications/{notification_id}/read` | In-app activity feed |
+| `groups.py` | `POST /groups`, `POST /groups/{group_id}/members`, `GET /groups/{group_id}/members` | Create a group, add and list members |
+| `expenses.py` | `POST /groups/{group_id}/expenses`, `POST /expenses`, `GET /groups/{group_id}/expenses` | Record and list expenses (`EQUAL`, `EXACT`, `SHARES`) |
+| `balances.py` | `GET /groups/{group_id}/balances`, `GET /balances`, `GET /groups/{group_id}/settle-up` | Who owes whom, and the fewest payments to settle |
+| `settlements.py` | `POST` and `GET /groups/{group_id}/settlements`, `POST …/{settlement_id}/confirm`, `…/reject`, `…/refresh` | Pay back by UPI or cash, confirm cash, check provider status |
+| `audit.py` | `GET /groups/{group_id}/audit/verify` | Check the hash chain for tampering |
+| `webhooks.py` | `POST /webhooks/mock-provider` | Signed payment provider callback |
+| `dev.py` | `POST /dev/mock-provider/pay/{reference}` | Payment simulator; only mounted outside production |
 
 **Design principles:**
 
@@ -281,7 +364,7 @@ Every protection is aimed at a specific attacker, and each one is backed by a li
 | Changes a group id in the URL | Membership check on every group route; outsiders get `404` (OWASP API1) | Walkthrough 10 |
 | Calls the API without logging in | Bearer token required; stored as a SHA-256 hash, compared in constant time, rotatable | Walkthrough 1, 2 |
 | Sends junk or oversized input | 64 KB cap (`413`), JSON only (`415`), unknown fields rejected (`422`), rate limits (`429` + `Retry-After`) | Walkthrough 5, automated suite |
-| Spoofs `X-Forwarded-For` to dodge rate limits | Client IP read from the right, skipping `TRUSTED_PROXY_HOPS` | Automated suite |
+| Spoofs `X-Forwarded-For` to dodge rate limits | Client IP read from the right, skipping `TRUSTED_PROXY_HOPS` | `tests/api/test_edge_hardening.py` |
 | Double-taps "pay", or pays from two devices | Group row lock plus the pending reservation | 10 parallel settlements: 1 succeeds, 9 rejected |
 | Fakes or replays a "payment received" callback | HMAC-SHA256 over timestamp and raw body, 300-second window, unique event id | Walkthrough 13, automated suite |
 | Steals a database dump | Only token hashes stored; UPI IDs encrypted with AES-256-GCM | Walkthrough 11 |
@@ -321,7 +404,7 @@ Sections 7 and 8 protect against people coming through the API. This section cov
 `GET /groups/{id}/audit/verify` recomputes the chain and checks each entry against the row it describes:
 
 ```json
-{"valid": true,  "entries_checked": 2}
+{"valid": true,  "entries": 2, "head": "a3f5…"}
 {"valid": false, "broken_at": 1, "reason": "hash_mismatch"}
 ```
 
