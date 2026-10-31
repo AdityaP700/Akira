@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## pending — D1-3.9 — README rewrite with brand logo, demo walkthrough guide and deployment architecture
+## aa3e15f — D1-3.9 — README rewrite with brand logo, demo walkthrough guide and deployment architecture
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Added brand logo, rewrote README.md into engaging narrative chapters, added Render ↔ Neon TLS deployment architecture, and added a 7-step critical demo screenshot guide.
 **Files changed:**

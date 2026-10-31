@@ -36,7 +36,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Documented `TRUSTED_PROXY_HOPS=1` in deployment guide to match Render reverse proxy architecture.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> `docs(deploy): add deployment guide, demo screenshots walkthrough and brand logo`
+**Commit:** aa3e15f `docs(deploy): add deployment guide, demo screenshots walkthrough and brand logo`
 **Next:** Final gate verification and reporting.
 
 ---
