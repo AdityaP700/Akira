@@ -34,7 +34,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Leftmost non-empty token in `X-Forwarded-For` identifies the originating client; falls back to `request.client.host` or `'127.0.0.1'`.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> `feat(security): forward client ip rate limiting with documented proxy trust`
+**Commit:** 8f12bb6 `feat(security): forward client ip rate limiting with documented proxy trust`
 **Next:** D1 Part 3 Item 5: render.yaml deployment configuration.
 
 ---

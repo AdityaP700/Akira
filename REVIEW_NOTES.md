@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — D1-3.4 — Forwarded client IP rate limiting with documented proxy trust
+## 8f12bb6 — D1-3.4 — Forwarded client IP rate limiting with documented proxy trust
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Configured rate limiting to key on forwarded client IP from X-Forwarded-For behind Render's reverse proxy, with documented trust assumptions.
 **Files changed:**
