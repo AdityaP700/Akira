@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## pending — SEC-CONFIG — Remove secret fallback defaults and enforce key validation
+## fbebe7e — SEC-CONFIG — Remove secret fallback defaults and enforce key validation
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Removed hardcoded secret fallback defaults from config for dev/demo/prod. Added fail-fast startup validation for missing keys, 32-byte hex validation, and decoupled Alembic migrations so schema upgrades only require database URLs.
 **Files changed:**

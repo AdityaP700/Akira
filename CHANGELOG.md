@@ -39,7 +39,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Alembic context detected via `ALEMBIC_MIGRATION_RUNNING` flag and CLI binary name.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> `fix(security): remove secret defaults, enforce key length/format and decouple alembic`
+**Commit:** fbebe7e `fix(security): remove secret defaults, enforce key length/format and decouple alembic`
 **Next:** User runs migrations and role script against Neon.
 
 ---
