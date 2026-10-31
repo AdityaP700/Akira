@@ -35,7 +35,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Use `exec` in `start.sh` so uvicorn directly receives OS signals (SIGTERM/SIGINT) for clean process termination.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> `feat(deploy): add start.sh entrypoint with migrations and proxy-headers`
+**Commit:** 9dc2ae6 `feat(deploy): add start.sh entrypoint with migrations and proxy-headers`
 **Next:** D1 Part 3 Item 4: forwarded client IP rate limiting behind Render proxy.
 
 ---

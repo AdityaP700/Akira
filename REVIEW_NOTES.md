@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — D1-3.3 — Add container start.sh entrypoint with migrations and proxy-headers
+## 9dc2ae6 — D1-3.3 — Add container start.sh entrypoint with migrations and proxy-headers
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Added scripts/start.sh entrypoint script running migrations then uvicorn with proxy headers under non-root appuser in Dockerfile.
 **Files changed:**
