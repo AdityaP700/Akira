@@ -19,6 +19,28 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 08:20 — D1-3.7 — Security audits with pip-audit and gitleaks
+**Status:** done
+**What changed:**
+- Ran `pip-audit` against installed virtual environment dependencies: 0 known vulnerabilities found across all packages.
+- Ran `gitleaks` via official Docker container (`zricethezav/gitleaks:latest`) scanning full git history (`--log-opts="--all" --redact`).
+- Verified `git log --all -- .env` is completely empty (no `.env` file was ever committed).
+- Investigated all 9 gitleaks rule matches: all are false positives from test fixtures (`"11" * 32` dummy HMAC/AES keys) and documentation examples (`Bearer est_...` in `DEMO.md` and `docs/API.md`). Zero real secrets exist in the repository or history.
+**Why:**
+- Comply with D1 Part 3 Item 7 and Guardrails S1/S2: verify complete absence of CVEs and leaked secrets before public deployment.
+**Not done / failed (and why):**
+- None.
+**Tests:** `pip-audit` -> 0 vulnerabilities; `gitleaks detect` -> 0 real secrets; `make lint` -> ok; `pytest -q --cov=app` -> 175 passed.
+**Decisions:**
+- `pip-audit` was installed into `.venv` only without altering `pyproject.toml`.
+- Gitleaks run via Docker container without installing system binaries.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> `chore(security): run pip-audit and gitleaks security scans`
+**Next:** Item 8: parameterize scripts/init_db_roles.sql for remote Neon execution.
+
+---
+
 ## 2026-10-31 08:10 — D1-3.4-fix — Secure reverse proxy IP extraction via rightward trusted hop walking
 **Status:** done
 **What changed:**
