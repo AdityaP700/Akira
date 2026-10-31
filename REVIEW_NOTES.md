@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — D1-3.1 — Split migration and runtime database URLs with role logging
+## 5be4d9c — D1-3.1 — Split migration and runtime database URLs with role logging
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Split MIGRATION_DATABASE_URL and DATABASE_URL for role separation. Configured startup lifespan to log current_user on startup, proving API connects as app_rw in docker compose.
 **Files changed:**

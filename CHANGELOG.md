@@ -35,7 +35,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Database user logged via structured JSON log at startup without exposing host or password.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> eat(db): split migration and runtime database urls with least-privilege role proof
+**Commit:** 5be4d9c eat(db): split migration and runtime database urls with least-privilege role proof
 **Next:** D1 Part 3 Item 2: APP_ENV=demo profile and tests.
 
 ---
