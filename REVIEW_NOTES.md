@@ -24,7 +24,33 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## pending — D1-3.8 — Parameterize database role creation script
+## pending — D1-3.9 — README rewrite with brand logo, demo walkthrough guide and deployment architecture
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Added brand logo, rewrote README.md into engaging narrative chapters, added Render ↔ Neon TLS deployment architecture, and added a 7-step critical demo screenshot guide.
+**Files changed:**
+- `assets/logo.png`: Added brand lion logo.
+- `README.md`: Complete narrative rewrite with architecture, math, deployment, and screenshot walkthrough.
+- `CHANGELOG.md`: Logged changes.
+- `REVIEW_NOTES.md`: Logged changes.
+**Behaviour before → after:**
+- Documentation provides complete visual and narrative clarity for evaluators with copy-pasteable commands and expected outputs.
+**How to verify:**
+1. View `README.md` in markdown preview or browser.
+2. Verify logo rendering: `assets/logo.png`.
+3. Check Postman `base_url`: `postman/expense-sharing.postman_collection.json`.
+**Risks / things to look at closely:**
+- Markdown image paths are relative (`assets/logo.png`) for seamless GitHub rendering.
+**Expected follow-up:**
+- Deploy to Render and connect to Neon.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
+## 45d83ec — D1-3.8 — Parameterize database role creation script
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Parameterized scripts/init_db_roles.sql using psql variables and dynamic SQL for database connection grants, eliminating hardcoded passwords.
 **Files changed:**

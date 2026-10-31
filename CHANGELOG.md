@@ -19,6 +19,28 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 08:30 — D1-3.9 — README rewrite with brand logo, demo walkthrough guide and deployment architecture
+**Status:** done
+**What changed:**
+- Embedded Akira brand logo (`assets/logo.png`) prominently at the top of `README.md`.
+- Completely rewrote `README.md` adopting the narrative, chapter-based prose, covering the Goa trip story, the 7 real-world failure modes, whole paise math, frozen shares, BOLA defenses, AES-256-GCM encryption with blind indexing, and append-only database roles.
+- Added comprehensive Chapter 11 Deployment guide documenting Render Web Service (FastAPI container) ↔ Neon Serverless PostgreSQL (PostgreSQL 16) over TLS, role separation (`app_owner` for Alembic migrations, `app_rw` for runtime), remote execution instructions for `scripts/init_db_roles.sql`, environment variable names (`sync: false`), cold-start handling, demo profile mock payments, and live URL placeholder (`https://akira-expense-sharing.onrender.com`).
+- Added Chapter 12 Critical Demo Walkthrough & Screenshot Guide with 7 concise, copy-pasteable curl commands and expected JSON responses for rapid verification and visual screenshots.
+- Verified Postman collection `postman/expense-sharing.postman_collection.json` `base_url` variable.
+**Why:**
+- Comply with D1 Part 3 Item 9 and user specification: provide clear, evaluator-friendly documentation with verifiable demo commands and screenshots guide.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok; `README.md` and `assets/logo.png` verified.
+**Decisions:**
+- Documented `TRUSTED_PROXY_HOPS=1` in deployment guide to match Render reverse proxy architecture.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> `docs(deploy): add deployment guide, demo screenshots walkthrough and brand logo`
+**Next:** Final gate verification and reporting.
+
+---
+
 ## 2026-10-31 08:25 — D1-3.8 — Parameterize database role creation script
 **Status:** done
 **What changed:**
@@ -35,7 +57,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Role creation uses `CREATE ROLE ... WITH LOGIN` if not exists, followed by `ALTER ROLE ... WITH LOGIN PASSWORD :'variable'`, supporting both fresh installations and password rotations safely.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> `refactor(db): parameterize role creation script for secure remote execution`
+**Commit:** 45d83ec `refactor(db): parameterize role creation script for secure remote execution`
 **Next:** Item 9: README rewrite with user logo, demo walkthrough screenshots guide, Render/Neon deployment guide, and Postman base_url.
 
 ---
