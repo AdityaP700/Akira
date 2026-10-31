@@ -2,7 +2,14 @@
 
 A backend for groups who share expenses: who paid, who owes, and who should pay whom. Built with **FastAPI**, **PostgreSQL 16**, **SQLAlchemy 2.0** and **Alembic**.
 
-The brief asks for users, groups, expenses and balances. All of that is here. Most of the work went into the part the brief left open: **making the numbers trustworthy**. That means exact money, no duplicates, no overpayment, no one reading someone else's group, and proof if history is changed.
+**Why it is built this way.** Moving money is a high-risk operation. A wrong balance, a duplicate payment or a leaked UPI ID costs real money and real trust. So Akira is designed in two layers:
+
+| Layer | What it covers | Goal |
+|---|---|---|
+| **1. Baseline** | Everything the brief asks for: users, groups, expenses, balances, settle-up | **Reliable:** the numbers are always exactly right, even under retries and parallel requests |
+| **2. Security and privacy** | Authentication, access control, payment proof, encryption, tamper detection | **Secure:** only the right people can see or change money, and any change to history is caught |
+
+Both layers are built to **scale** without breaking correctness: locks are per group, so different groups never wait on each other, and all data lives in PostgreSQL rather than in the app process. [Section 3](#3-how-it-is-built-baseline-then-security-and-privacy) shows what each layer contains.
 
 | | |
 |---|---|
@@ -19,7 +26,7 @@ The brief asks for users, groups, expenses and balances. All of that is here. Mo
 
 1. [At a glance](#1-at-a-glance)
 2. [The Goa trip example](#2-the-goa-trip-example)
-3. [How I approached it](#3-how-i-approached-it)
+3. [How it is built: baseline, then security and privacy](#3-how-it-is-built-baseline-then-security-and-privacy)
 4. [Architecture](#4-architecture)
 5. [API design](#5-api-design)
 6. [Database design](#6-database-design)
@@ -27,12 +34,12 @@ The brief asks for users, groups, expenses and balances. All of that is here. Mo
 8. [Protected: the security model](#8-protected-the-security-model)
 9. [Provable: detecting changes to history](#9-provable-detecting-changes-to-history)
 10. [Design decisions and alternatives](#10-design-decisions-and-alternatives)
-11. [Where the ideas came from](#11-where-the-ideas-came-from)
-12. [Verified walkthrough](#12-verified-walkthrough)
-13. [Run it locally](#13-run-it-locally)
-14. [Tests](#14-tests)
-15. [Deployment](#15-deployment)
-16. [Known limits and next steps](#16-known-limits-and-next-steps)
+11. [Verified walkthrough](#11-verified-walkthrough)
+12. [Run it locally](#12-run-it-locally)
+13. [Tests](#13-tests)
+14. [Deployment](#14-deployment)
+15. [Known limits and next steps](#15-known-limits-and-next-steps)
+16. [References](#references)
 
 ---
 
@@ -76,39 +83,47 @@ flowchart LR
 
 ---
 
-## 3. How I approached it
+## 3. How it is built: baseline, then security and privacy
 
-**The question I started from.** Decentro moves money for a living. In a money app, the hard part is not the arithmetic. It is whether people believe the numbers. So I asked what could make a shared ledger wrong or untrustworthy, and wrote down seven cases before designing anything:
+**The starting question.** In a money app, the hard part is not the arithmetic. It is whether people can trust the numbers. Before designing anything, I wrote down seven ways a shared ledger goes wrong. The baseline handles the first four; the security and privacy layer handles the rest.
 
-| Case | What goes wrong | Where it is handled |
+| Case | What goes wrong | Handled by |
 |---|---|---|
-| The missing paisa | ₹1,000 ÷ 3 rounds to ₹999.99 | [Section 7](#7-correct-getting-the-arithmetic-right) |
-| The late joiner | A new member inherits a dinner he never ate | [Section 6](#6-database-design) |
-| The double tap | A retry records the cab twice | [Section 7](#7-correct-getting-the-arithmetic-right) |
-| The two phones | Two parallel payments both succeed against one debt | [Section 7](#7-correct-getting-the-arithmetic-right) |
-| The "I already paid" | Someone marks a debt paid without paying | [Section 8](#8-protected-the-security-model) |
-| The quiet edit | Someone with database access changes an amount | [Section 9](#9-provable-detecting-changes-to-history) |
-| The leaked backup | A database dump exposes everyone's UPI ID | [Section 8](#8-protected-the-security-model) |
+| The missing paisa | ₹1,000 ÷ 3 rounds to ₹999.99 | Baseline |
+| The late joiner | A new member inherits a dinner he never ate | Baseline |
+| The double tap | A retry records the cab twice | Baseline |
+| The two phones | Two parallel payments both succeed against one debt | Baseline |
+| The "I already paid" | Someone marks a debt paid without paying | Security and privacy |
+| The leaked backup | A database dump exposes everyone's UPI ID | Security and privacy |
+| The quiet edit | Someone with database access changes an amount | Security and privacy |
 
-These grouped into three questions, which became the structure of the project:
+### Layer 1: Baseline (the brief, built to be reliable)
 
-| | Question |
+Built and tagged first, so the brief was never at risk.
+
+| What it adds | Why |
 |---|---|
-| **Correct** | Is the arithmetic always right, even with retries and parallel requests? |
-| **Protected** | Can only the right people see and change a group's money? |
-| **Provable** | If something changed behind our back, will we know? |
+| Users, groups, members, expenses, balances | Everything the brief asks for |
+| Integer paise and deterministic rounding | Money never loses a paisa |
+| Frozen shares per expense | History doesn't change when members join |
+| Balances derived from history | No stored copy that can drift |
+| A lock per group and idempotency keys | Parallel requests and retries can't corrupt or duplicate data |
+| Settle-up suggestions (product enhancement) | The fewest payments to clear a group |
 
-**How the work was split.** The brief first, then the extensions, so the brief was never at risk. Each phase had a written spec and acceptance tests, and every phase is logged in [`CHANGELOG.md`](CHANGELOG.md).
+### Layer 2: Security and privacy (built on top)
 
-| Phase | What it added |
-|---|---|
-| B0 to B6 (the brief) | Skeleton and CI, money and split logic, schema, users and groups API, expenses, balances and settle-up, seed data and docs |
-| A1 | Authentication and membership checks |
-| A2 | Input limits, rate limits, security headers, masked logs |
-| A3 | Settlement lifecycle, signed webhooks, notifications |
-| A4 | Tamper-evident hash-chained ledger |
-| A5 | Encrypted UPI IDs, weighted splits, least-privilege database roles |
-| A6 | Concurrency tests on Postgres, threat model, demo |
+Each step answers one attacker. Details in [section 8](#8-protected-the-security-model) and [section 9](#9-provable-detecting-changes-to-history).
+
+| Step | What it adds | Stops |
+|---|---|---|
+| A1 | Bearer tokens (stored hashed) and a membership check on every group route | Outsiders reading or changing a group |
+| A2 | Input limits, rate limits, security headers, masked logs | Junk traffic, floods, data leaking through logs |
+| A3 | Settlement lifecycle with signed provider webhooks; cash needs the receiver to confirm | "I already paid" without paying |
+| A4 | HMAC hash-chained ledger with `audit/verify` | Silent edits to history |
+| A5 | Encrypted UPI IDs and a database role that can't update or delete history | Leaked backups, history rewrites through the app |
+| A6 | Concurrency tests on real Postgres, threat model, demo | Claims that aren't proven |
+
+Every step is logged in [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -332,22 +347,7 @@ Sections 7 and 8 protect against people coming through the API. This section cov
 
 ---
 
-## 11. Where the ideas came from
-
-| Idea | Source |
-|---|---|
-| Idempotency keys, webhook signature format (`t=…,v1=…`) | Stripe's API design |
-| Membership checks, `404` over `403`, input limits | OWASP API Security Top 10 (2023); GitHub returns `404` for private repositories |
-| Settle-up as debt simplification | Splitwise's "simplify debts" |
-| Append-only ledger, corrections as new entries | Accounting and banking ledgers |
-| Hash-chained, tamper-evident log | Certificate Transparency |
-| Blind index for encrypted, searchable fields | Paragon Initiative's CipherSweet |
-| Layers with swappable adapters | Ports-and-adapters (hexagonal) architecture |
-| Payment lifecycle and UPI vocabulary | Payment infrastructure providers such as Decentro |
-
----
-
-## 12. Verified walkthrough
+## 11. Verified walkthrough
 
 Every scenario below was run against the live deployment. Run them yourself at [`/docs`](https://akira-expense-sharing.onrender.com/docs):
 
@@ -374,11 +374,11 @@ Every scenario below was run against the live deployment. Run them yourself at [
 | 15 | Notifications | Mohit | `GET /users/me/notifications` | Expense and settlement events, written in the same transaction | [<img src="assets/screenshots/test13-notification.jpg" width="95%" />](assets/screenshots/test13-notification.jpg) |
 | 16 | Audit chain | Mohit | `GET /groups/{id}/audit/verify` | `valid: true` | [<img src="assets/screenshots/test-15-audit.jpg" width="95%" />](assets/screenshots/test-15-audit.jpg) |
 
-Rate limiting, the database-role test and the tamper test are covered by the automated suite (see [Tests](#14-tests)).
+Rate limiting, the database-role test and the tamper test are covered by the automated suite (see [Tests](#13-tests)).
 
 ---
 
-## 13. Run it locally
+## 12. Run it locally
 
 ```bash
 git clone https://github.com/AdityaP700/Akira.git && cd Akira
@@ -391,7 +391,7 @@ The API runs on `http://localhost:8000`, with docs on `/docs`. Seed the Goa trip
 
 ---
 
-## 14. Tests
+## 13. Tests
 
 193 tests run against **PostgreSQL 16**, never SQLite. SQLite ignores `SELECT … FOR UPDATE`, which would make the locking tests meaningless, so the test setup refuses to start without Postgres. Money logic has 100% coverage; overall coverage is 93%.
 
@@ -411,7 +411,7 @@ make lint   # ruff + mypy
 
 ---
 
-## 15. Deployment
+## 14. Deployment
 
 - **App:** Docker web service on Render (`render.yaml`), Singapore region. `scripts/start.sh` runs migrations, then starts the API with one worker.
 - **Database:** Neon PostgreSQL 16 over TLS, with two roles created by `scripts/init_db_roles.sql`. Passwords are passed as `psql` variables and never stored in the repo.
@@ -428,7 +428,7 @@ make lint   # ruff + mypy
 
 ---
 
-## 16. Known limits and next steps
+## 15. Known limits and next steps
 
 **What Akira does not protect against:**
 
@@ -444,6 +444,28 @@ make lint   # ruff + mypy
 - Scheduled audit checks, with each day's chain head stored outside the system.
 - KMS-managed, per-user encryption keys, so deleting a key makes that user's data unreadable.
 - PostgreSQL Row-Level Security, so group isolation is also enforced by the database.
+
+---
+
+---
+
+## References
+
+The ideas behind the design, and where each one is used.
+
+| Idea | Used in | Source |
+|---|---|---|
+| Idempotency keys | Safe retries on every write | [Stripe: Idempotent requests](https://docs.stripe.com/api/idempotent_requests) |
+| Signed webhooks with timestamp (`t=…,v1=…`) | Payment callbacks | [Stripe: Webhook signatures](https://docs.stripe.com/webhooks#verify-events) |
+| Object-level authorization, input and rate limits | Membership checks, edge limits | [OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x11-t10/) |
+| `404` instead of `403` for private resources | Non-member access | GitHub's handling of private repositories |
+| Debt simplification | Settle-up | Splitwise's "simplify debts" feature |
+| Append-only ledger, corrections as new entries | `ledger_entries`, database roles | Standard accounting practice |
+| Hash-chained, tamper-evident logs | Audit chain | [Certificate Transparency (RFC 6962)](https://datatracker.ietf.org/doc/html/rfc6962) |
+| Blind indexes for encrypted fields | UPI ID uniqueness | [Paragon Initiative: CipherSweet](https://ciphersweet.paragonie.com/) |
+| Ports and adapters | Code layout, swappable providers | Alistair Cockburn, hexagonal architecture |
+| Double-entry ledgers for engineers | Next steps | [Modern Treasury: Accounting for Developers](https://www.moderntreasury.com/journal/accounting-for-developers-part-i) |
+| UPI payment lifecycle | Settlement states | Payment infrastructure providers such as Decentro |
 
 ---
 
