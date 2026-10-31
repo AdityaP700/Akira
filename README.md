@@ -1,9 +1,5 @@
 # Akira: Splitting Expenses Without Losing Trust
 
-<p align="center">
-  <video src="https://github.com/user-attachments/assets/4aaf246b-7e02-4f79-b101-af04b22fa543" controls width="100%" style="max-width: 720px; border-radius: 8px;">
-  </video>
-</p>
 
 A backend for groups who share expenses: who paid, who owes, and who should pay whom. Built with **FastAPI**, **PostgreSQL 16**, **SQLAlchemy 2.0** and **Alembic** .
 
