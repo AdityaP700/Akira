@@ -34,7 +34,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Render service config uses `sync: false` on all sensitive keys so secrets are injected securely via Render Environment Variables UI.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> `feat(deploy): create render.yaml deployment blueprint`
+**Commit:** c662bb9 `feat(deploy): create render.yaml deployment blueprint`
 **Next:** D1 Part 3 Item 6: .env.example documentation.
 
 ---

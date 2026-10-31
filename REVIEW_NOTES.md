@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — D1-3.5 — Add render.yaml deployment configuration
+## c662bb9 — D1-3.5 — Add render.yaml deployment configuration
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Created render.yaml Infrastructure-as-Code blueprint for deploying the containerized service to Render with healthCheckPath /health and sync: false on all secrets.
 **Files changed:**
