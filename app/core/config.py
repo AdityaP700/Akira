@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     MIGRATION_DATABASE_URL: str = ""
     TEST_DATABASE_URL: str = ""
     LOCAL_DB_PASSWORD: str = ""
-    APP_ENV: Literal["dev", "test", "prod"] = "dev"
+    APP_ENV: Literal["dev", "test", "demo", "prod"] = "dev"
 
     # Edge hardening & Rate limiting
     RATE_LIMIT_ENABLED: bool = True

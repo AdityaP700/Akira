@@ -24,6 +24,33 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — D1-3.2 — Add demo profile with mock payments and header hardening
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Added APP_ENV=demo profile with X-Environment: demo-mock-payments header, enabling /docs and /dev mock provider simulation while retaining full production edge hardening. Added test suite for demo vs prod.
+**Files changed:**
+- pp/core/config.py: Added 'demo' to APP_ENV literal.
+- pp/security/edge.py: Injected X-Environment: demo-mock-payments response header when APP_ENV == 'demo'.
+- 	ests/api/test_environment_profiles.py: Created test suite verifying /docs, /redoc, /openapi.json, /dev routes, and response headers across demo and prod profiles.
+**Behaviour before → after:**
+- Before: Only dev, 	est, and prod were valid profiles. In prod, mock provider was disabled and docs disabled.
+- After: demo profile provides a safe environment for evaluators: documentation and mock payment simulation routes are available, response header identifies demo mode, while production security hardening remains active.
+**How to verify:**
+1. Run test suite:
+   pytest tests/api/test_environment_profiles.py -v (2 passed)
+2. Run full test suite:
+   pytest -q --cov=app (172 passed)
+**Risks / things to look at closely:**
+- In prod, /docs, /redoc, and /dev endpoints are strictly 404 and unreachable.
+**Expected follow-up:**
+- Item 3: scripts/start.sh entrypoint with migrations and proxy-headers.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 5be4d9c — D1-3.1 — Split migration and runtime database URLs with role logging
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Split MIGRATION_DATABASE_URL and DATABASE_URL for role separation. Configured startup lifespan to log current_user on startup, proving API connects as app_rw in docker compose.

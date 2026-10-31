@@ -19,6 +19,28 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 07:45 — D1-3.2 — Add demo profile with mock payments and header hardening
+**Status:** done
+**What changed:**
+- Updated APP_ENV literal to Literal['dev', 'test', 'demo', 'prod'] in pp/core/config.py.
+- Added response header X-Environment: demo-mock-payments in pp/security/edge.py when APP_ENV == 'demo'.
+- Verified that APP_ENV=demo preserves production edge hardening (body size limit, MIME types, security headers) while enabling /docs, /redoc, /openapi.json, and /dev mock provider endpoints.
+- Verified that APP_ENV=prod disables interactive docs (/docs 404), unmounts /dev endpoints (404), enforces HSTS, and suppresses demo header.
+- Added comprehensive automated test suite in 	ests/api/test_environment_profiles.py verifying both profiles.
+**Why:**
+- Comply with D1 Part 3 Item 2 and Guardrails P9 / OWASP API9: enable evaluator testing of the live mock payment flow via Swagger UI without compromising production security posture.
+**Not done / failed (and why):**
+- None.
+**Tests:** make lint -> ok; pytest tests/api/test_environment_profiles.py -> 2 passed; full suite -> 172 passed (93% coverage).
+**Decisions:**
+- APP_ENV=demo sets X-Environment: demo-mock-payments header so consumers and evaluators can verify the running environment from any HTTP response.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> eat(env): add demo profile with mock payments and header hardening
+**Next:** D1 Part 3 Item 3: scripts/start.sh entrypoint with migrations and proxy-headers.
+
+---
+
 ## 2026-10-31 07:37 — D1-3.1 — Split migration and runtime database URLs with role logging
 **Status:** done
 **What changed:**

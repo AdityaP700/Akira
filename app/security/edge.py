@@ -90,4 +90,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         if settings.APP_ENV == "prod":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
+        # Explicit environment marker for demo profile with mock payments
+        if settings.APP_ENV == "demo":
+            response.headers["X-Environment"] = "demo-mock-payments"
+
         return response
