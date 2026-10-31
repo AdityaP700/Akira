@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## <pending> — D1-3.2 — Add demo profile with mock payments and header hardening
+## a3839a6 — D1-3.2 — Add demo profile with mock payments and header hardening
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Added APP_ENV=demo profile with X-Environment: demo-mock-payments header, enabling /docs and /dev mock provider simulation while retaining full production edge hardening. Added test suite for demo vs prod.
 **Files changed:**

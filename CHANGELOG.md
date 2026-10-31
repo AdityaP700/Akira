@@ -36,7 +36,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - APP_ENV=demo sets X-Environment: demo-mock-payments header so consumers and evaluators can verify the running environment from any HTTP response.
 **Proposed (not built):**
 - None.
-**Commit:** <pending> eat(env): add demo profile with mock payments and header hardening
+**Commit:** a3839a6 eat(env): add demo profile with mock payments and header hardening
 **Next:** D1 Part 3 Item 3: scripts/start.sh entrypoint with migrations and proxy-headers.
 
 ---
