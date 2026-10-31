@@ -24,6 +24,30 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — D1-3.6 — Document all environment variables in .env.example
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Updated .env.example with complete documentation and empty defaults for all settings including MIGRATION_DATABASE_URL and APP_ENV=demo.
+**Files changed:**
+- `.env.example`: Documented every configuration variable with one-line comments and empty secret placeholders.
+**Behaviour before → after:**
+- Before: `MIGRATION_DATABASE_URL` and rate-limiting tunables were missing from `.env.example`.
+- After: Complete specification of all application, database role, crypto, and edge parameters provided for deployment operators.
+**How to verify:**
+1. Inspect `.env.example`:
+   Verify every variable used by `app/core/config.py` is listed.
+2. Confirm no secrets are present.
+**Risks / things to look at closely:**
+- Values are strictly empty; no real or dev secrets in template.
+**Expected follow-up:**
+- Item 7: Dependency and secret leak audit (ask user before pip-audit / gitleaks).
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## c662bb9 — D1-3.5 — Add render.yaml deployment configuration
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Created render.yaml Infrastructure-as-Code blueprint for deploying the containerized service to Render with healthCheckPath /health and sync: false on all secrets.

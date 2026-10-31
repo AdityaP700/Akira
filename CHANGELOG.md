@@ -19,6 +19,24 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 08:02 — D1-3.6 — Document all environment variables in .env.example
+**Status:** done
+**What changed:**
+- Updated `.env.example` to document every environment variable name with a clear one-line comment and empty default value, including `MIGRATION_DATABASE_URL`, `DATABASE_URL`, `APP_ENV=demo`, rate limits, and key identifiers.
+**Why:**
+- Comply with D1 Part 3 Item 6 and Guardrail S3: every secret and runtime configuration setting is documented with instructions on generation without storing plaintext values in source control.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok; `git diff .env.example` -> verified comments.
+**Decisions:**
+- All secret values left empty in `.env.example` with instructions on using `python -c "import secrets; print(secrets.token_hex(32))"`.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> `docs(config): update .env.example with migration url and demo variables`
+**Next:** D1 Part 3 Item 7: ask user before installing pip-audit and gitleaks, then run audits.
+
+---
+
 ## 2026-10-31 08:00 — D1-3.5 — Add render.yaml deployment configuration
 **Status:** done
 **What changed:**
