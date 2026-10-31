@@ -24,6 +24,31 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## ae3fa84 — D1-3.10 — Add table of contents and update video URL with GitHub asset link
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Added a Table of Contents to README for streamlined navigation across all sections, and updated the walkthrough demo video embed and table links to the GitHub user-attachments asset URL for native playback on GitHub.
+**Files changed:**
+- `README.md`: Added Table of Contents section; updated video embed and quick links table with GitHub asset URL.
+- `CHANGELOG.md`: Logged changes.
+- `REVIEW_NOTES.md`: Logged changes.
+**Behaviour before → after:**
+- Before: README lacked a Table of Contents and used local video file reference for header video.
+- After: README includes quick navigation jump links and direct GitHub asset video URL for native browser player support.
+**How to verify:**
+1. View `README.md` to verify the Table of Contents links jump to corresponding sections.
+2. Verify video URL points to `https://github.com/user-attachments/assets/4aaf246b-7e02-4f79-b101-af04b22fa543`.
+**Risks / things to look at closely:**
+- None; documentation formatting only.
+**Expected follow-up:**
+- Project ready for submission.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 63f1232 — D1-3.9 — Embed demo video, add live deployment links and real walkthrough screenshots
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Embedded the walkthrough video (`assets/akira_reel_light.mp4`) in README, added live deployment links for Render and Swagger, and updated all 16 walkthrough test scenarios to display real screenshots from `assets/screenshots/` with multi-image steps arranged side-by-side.

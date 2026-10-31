@@ -1,23 +1,42 @@
 # Akira: Splitting Expenses Without Losing Trust
 
 <p align="center">
-  <video src="assets/akira_reel_light.mp4" controls width="100%" style="max-width: 720px; border-radius: 8px;">
+  <video src="https://github.com/user-attachments/assets/4aaf246b-7e02-4f79-b101-af04b22fa543" controls width="100%" style="max-width: 720px; border-radius: 8px;">
   </video>
 </p>
 
-A backend for groups who share expenses: who paid, who owes, and who should pay whom. Built with **FastAPI**, **PostgreSQL 16**, **SQLAlchemy 2.0** and **Alembic**
+A backend for groups who share expenses: who paid, who owes, and who should pay whom. Built with **FastAPI**, **PostgreSQL 16**, **SQLAlchemy 2.0** and **Alembic** .
 
 The brief asks for users, groups, expenses and balances. All of that is here. Most of the work went into the part the brief left open: **making the numbers trustworthy** : exact money, no duplicates, no overpayment, no one reading someone else's group, and proof if history is changed.
 
 | | |
 |---|---|
-|  **Demo video** | [akira_reel_light.mp4](assets/akira_reel_light.mp4) |
+|  **Demo video** | [Watch walkthrough (2 min)](https://github.com/user-attachments/assets/4aaf246b-7e02-4f79-b101-af04b22fa543) |
 |  **Live API** | https://akira-expense-sharing.onrender.com |
 |  **Interactive docs (Swagger)** | https://akira-expense-sharing.onrender.com/docs |
 |  **User profile endpoint** | https://akira-expense-sharing.onrender.com/docs#/users/get_current_user_users_me_get |
 |  **Health check** | https://akira-expense-sharing.onrender.com/health |
 
 > The live service runs on a free tier. If it has been idle, the first request takes about a minute while it wakes up. Payments use a **mock provider** (every response carries `X-Environment: demo-mock-payments`).
+
+---
+
+## Contents
+
+- [At a glance](#at-a-glance)
+- [The Goa trip example](#the-example-used-everywhere-a-goa-trip)
+- [Verified walkthrough (16 live scenarios)](#verified-walkthrough-live-via-swagger)
+- [Run it locally](#run-it-locally)
+- [How it works](#how-it-works)
+  - [Arithmetic correctness](#how-it-works)
+  - [Protection and authentication](#how-it-works)
+  - [Audit hash chain](#how-it-works)
+  - [Differences from the brief](#how-it-works)
+  - [Code layout and database roles](#how-it-works)
+  - [Deployment (Render + Neon)](#how-it-works)
+- [PostgreSQL test suite](#tests)
+- [Known limits](#known-limits)
+- [What I would do next](#what-i-would-do-next)
 
 ---
 

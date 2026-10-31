@@ -19,6 +19,25 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 11:28 — D1-3.10 — Add table of contents and update video URL with GitHub asset link
+**Status:** done
+**What changed:**
+- Added a structured Table of Contents section to `README.md` for fast document navigation.
+- Updated top video embed and walkthrough demo link to the GitHub user-attachments asset URL (`https://github.com/user-attachments/assets/4aaf246b-7e02-4f79-b101-af04b22fa543`).
+**Why:**
+- Enable native GitHub video playback and improve README navigability.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok.
+**Decisions:**
+- Use GitHub asset video URL in both video tag and quick links table.
+**Proposed (not built):**
+- None.
+**Commit:** ae3fa84 `docs: add table of contents and update walkthrough video github asset url`
+**Next:** Ready for final project submission.
+
+---
+
 ## 2026-10-31 11:20 — D1-3.9 — Embed demo video, add live deployment links and real walkthrough screenshots
 **Status:** done
 **What changed:**
