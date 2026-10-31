@@ -24,6 +24,32 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## 8ea1640 — CI-FIX — Enforce DATABASE_URL check before secret keys in Settings
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Fixed test assertion failure in `test_settings_fail_fast_when_database_url_missing` by prioritizing `DATABASE_URL` validation over secret keys in `Settings.validate_config`, and supplying dummy test secret keys in the unit test.
+**Files changed:**
+- `app/core/config.py`: Check `DATABASE_URL` before `REQUIRED_SECRET_KEYS`.
+- `tests/api/test_health.py`: Provide explicit dummy keys to isolate database URL validation.
+- `CHANGELOG.md`: Log entry.
+- `REVIEW_NOTES.md`: Log entry.
+**Behaviour before → after:**
+- Before: Calling `Settings(DATABASE_URL="", APP_ENV="dev")` failed with "Missing required security environment variable(s)" instead of "DATABASE_URL is missing or empty".
+- After: Fails fast with clear "DATABASE_URL is missing or empty" error as expected.
+**How to verify:**
+1. `pytest tests/api/test_health.py -k test_settings_fail_fast_when_database_url_missing` passes.
+2. `pytest -q --cov=app` passes all 193 tests.
+**Risks / things to look at closely:**
+- None; validation order refinement and test isolation.
+**Expected follow-up:**
+- Push to GitHub for complete green CI pipeline.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 88aaf41 — CI-FIX — Fix TEST_DATABASE_URL and CI migration setup
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Resolved the CI test failure where `TEST_DATABASE_URL` was missing in GitHub Actions environment. Configured config fallback to `DATABASE_URL` under `APP_ENV=test`, ensured migration test database creation, and added schema migration step in CI workflow.

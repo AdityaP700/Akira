@@ -19,6 +19,25 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 12:22 — CI-FIX — Enforce DATABASE_URL presence before secret key check in Settings
+**Status:** done
+**What changed:**
+- Moved `DATABASE_URL` presence validation ahead of cryptographic key validation in `app/core/config.py`.
+- Updated `tests/api/test_health.py::test_settings_fail_fast_when_database_url_missing` to supply valid dummy secret keys, preventing cross-validation pollution.
+**Why:**
+- When `DATABASE_URL` was empty in non-test profiles, `Settings` validation previously failed on missing secret keys first, masking the intended database URL error message and failing CI.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make test` -> 193 passed, 0 failed; `make lint` -> ok.
+**Decisions:**
+- Validate database connectivity settings before service-specific cryptography secrets to ensure database config errors are raised immediately.
+**Proposed (not built):**
+- None.
+**Commit:** 8ea1640 `fix(config): enforce database_url check before secret keys in validation`
+**Next:** User pushes to trigger 100% green CI on GitHub.
+
+---
+
 ## 2026-10-31 12:08 — CI-FIX — Fix TEST_DATABASE_URL and CI migration setup
 **Status:** done
 **What changed:**

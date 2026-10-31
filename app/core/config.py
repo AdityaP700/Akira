@@ -111,6 +111,13 @@ class Settings(BaseSettings):
 
         is_test = self.APP_ENV == "test"
 
+        # Enforce DATABASE_URL presence for API runtime outside tests and Alembic
+        if not is_test and not is_alembic and not self.DATABASE_URL.strip():
+            raise ValueError(
+                "DATABASE_URL is missing or empty. A valid PostgreSQL connection string "
+                "must be provided via environment variable or .env file."
+            )
+
         if is_test:
             # Test profile: populate deterministic fallback secrets if omitted
             for key, default_val in TEST_FALLBACK_SECRETS.items():
@@ -148,13 +155,6 @@ class Settings(BaseSettings):
                             "must be a valid 32-byte hex-encoded string."
                         ) from None
                     raise
-
-        # Enforce DATABASE_URL presence for API runtime outside tests and Alembic
-        if not is_test and not is_alembic and not self.DATABASE_URL.strip():
-            raise ValueError(
-                "DATABASE_URL is missing or empty. A valid PostgreSQL connection string "
-                "must be provided via environment variable or .env file."
-            )
 
         return self
 

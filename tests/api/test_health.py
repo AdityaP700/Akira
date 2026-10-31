@@ -143,7 +143,18 @@ def test_settings_fail_fast_when_database_url_missing() -> None:
     pytest_mod = sys.modules.pop("pytest", None)
     try:
         with pytest.raises(ValueError, match="DATABASE_URL is missing or empty"):
-            Settings(DATABASE_URL="", LOCAL_DB_PASSWORD="", APP_ENV="dev")
+            Settings(
+                DATABASE_URL="",
+                LOCAL_DB_PASSWORD="",
+                APP_ENV="dev",
+                WEBHOOK_HMAC_KEY="11" * 32,
+                WEBHOOK_KEY_ID="wh_key",
+                AUDIT_HMAC_KEY="22" * 32,
+                AUDIT_KEY_ID="audit_key",
+                PII_ENC_KEY="33" * 32,
+                PII_BLIND_INDEX_KEY="44" * 32,
+                PII_KEY_ID="pii_key",
+            )
     finally:
         if pytest_marker is not None:
             os.environ["PYTEST_CURRENT_TEST"] = pytest_marker
