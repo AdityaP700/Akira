@@ -23,7 +23,8 @@ services:
       dockerfile: Dockerfile
     container_name: akira-api
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:${LOCAL_DB_PASSWORD}@db:5432/akira
+      DATABASE_URL: postgresql+psycopg://app_rw:app_rw_dev_pass@db:5432/akira
+      MIGRATION_DATABASE_URL: postgresql+psycopg://app_owner:app_owner_dev_pass@db:5432/akira
       APP_ENV: dev
     ports:
       - "8000:8000"

@@ -1,5 +1,9 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from slowapi.middleware import SlowAPIMiddleware
+from sqlalchemy import text
 
 from app.api.routers import (
     audit,
@@ -14,10 +18,29 @@ from app.api.routers import (
     webhooks,
 )
 from app.core.config import settings
+from app.core.db import engine
 from app.core.errors import register_error_handlers
 from app.core.logging import RequestLoggingMiddleware, setup_logging
 from app.security.edge import EdgeHardeningMiddleware, SecurityHeadersMiddleware
 from app.security.ratelimit import limiter
+
+startup_logger = logging.getLogger("app.startup")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager that logs database connection role once at startup."""
+    try:
+        with engine.connect() as conn:
+            current_user = conn.execute(text("SELECT current_user")).scalar()
+            startup_logger.info(
+                "Database connected as %s",
+                current_user,
+                extra={"event": "db_connected", "db_user": current_user},
+            )
+    except Exception as exc:
+        startup_logger.warning("Could not verify DB user on startup: %s", exc)
+    yield
 
 
 def create_app() -> FastAPI:
@@ -36,6 +59,7 @@ def create_app() -> FastAPI:
         docs_url=docs_url,
         redoc_url=redoc_url,
         openapi_url=openapi_url,
+        lifespan=lifespan,
     )
 
     # Attach slowapi rate limiter state

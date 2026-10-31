@@ -338,7 +338,6 @@ def test_bola_non_member_cannot_verify_audit(
 def test_concurrent_appends_produce_consecutive_seqs_and_valid_chain(
     client_and_db: ClientDbProvider,
 ) -> None:
-
     client, _, _ = client_and_db
     grp_id, u1_id, t1, _, _, _ = _setup_group(client)
 

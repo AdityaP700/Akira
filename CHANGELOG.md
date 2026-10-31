@@ -19,6 +19,27 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-10-31 07:37 — D1-3.1 — Split migration and runtime database URLs with role logging
+**Status:** done
+**What changed:**
+- Added MIGRATION_DATABASE_URL to Settings (pp/core/config.py) and updated lembic/env.py to prefer migration credentials (pp_owner) over runtime credentials (DATABASE_URL).
+- Configured FastAPI startup lifespan in pp/main.py to inspect and log current_user once at startup without passwords (event: db_connected, db_user: <role>).
+- Updated docker-compose.yml to supply runtime credentials (pp_rw) for DATABASE_URL and migration credentials (pp_owner) for MIGRATION_DATABASE_URL.
+- Verified in Docker container startup logs that the running API connects as pp_rw.
+**Why:**
+- Comply with least-privilege security guardrail P8 and D1 Part 3 Item 1: runtime application role has strictly limited permissions (no DDL, append-only tables), while schema migrations use dedicated owner privileges.
+**Not done / failed (and why):**
+- None.
+**Tests:** docker compose logs api -> Database connected as app_rw; make lint -> ok; pytest -q --cov=app -> 170 passed (93% coverage).
+**Decisions:**
+- Database user logged via structured JSON log at startup without exposing host or password.
+**Proposed (not built):**
+- None.
+**Commit:** <pending> eat(db): split migration and runtime database urls with least-privilege role proof
+**Next:** D1 Part 3 Item 2: APP_ENV=demo profile and tests.
+
+---
+
 ## 2026-10-31 03:50 — D1-3 — Containerized smoke test and production readiness verification
 **Status:** done
 **What changed:**

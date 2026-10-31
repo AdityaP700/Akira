@@ -24,6 +24,35 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## <pending> — D1-3.1 — Split migration and runtime database URLs with role logging
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Split MIGRATION_DATABASE_URL and DATABASE_URL for role separation. Configured startup lifespan to log current_user on startup, proving API connects as app_rw in docker compose.
+**Files changed:**
+- pp/core/config.py: Added MIGRATION_DATABASE_URL setting.
+- lembic/env.py: Preferred MIGRATION_DATABASE_URL over DATABASE_URL for running migrations.
+- pp/core/logging.py: Added event and db_user attributes to JSON log formatter.
+- pp/main.py: Added lifespan handler to inspect and log current_user at startup without passwords.
+- docker-compose.yml: Configured DATABASE_URL as pp_rw and MIGRATION_DATABASE_URL as pp_owner.
+**Behaviour before → after:**
+- Before: API container and migrations shared DATABASE_URL connecting as postgres.
+- After: Migrations run as pp_owner, runtime application runs as pp_rw (least privilege), and role is verified in structured logs at container startup.
+**How to verify:**
+1. Check docker compose logs:
+   docker compose logs api -> Database connected as app_rw (event: db_connected, db_user: app_rw)
+2. Run test suite:
+   pytest -q --cov=app (170 passed)
+**Risks / things to look at closely:**
+- No passwords or hosts are logged during startup verification.
+**Expected follow-up:**
+- Item 2: APP_ENV=demo profile and tests.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## aa1eb96 — D1-3 — Containerized smoke test and production readiness verification
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Verified containerized deployment via docker compose up --build. Executed 10-step automated smoke test against http://localhost:8000 confirming production readiness.

@@ -55,7 +55,15 @@ class JSONLogFormatter(logging.Formatter):
             "logger": record.name,
             "request_id": getattr(record, "request_id", None) or get_request_id() or None,
         }
-        for attr in ("method", "route_template", "status", "latency_ms", "actor_public_id"):
+        for attr in (
+            "method",
+            "route_template",
+            "status",
+            "latency_ms",
+            "actor_public_id",
+            "event",
+            "db_user",
+        ):
             val = getattr(record, attr, None)
             if val is not None:
                 log_obj[attr] = val

@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     DATABASE_URL: str = ""
+    MIGRATION_DATABASE_URL: str = ""
     TEST_DATABASE_URL: str = ""
     LOCAL_DB_PASSWORD: str = ""
     APP_ENV: Literal["dev", "test", "prod"] = "dev"
