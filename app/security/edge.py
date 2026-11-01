@@ -55,6 +55,10 @@ class EdgeHardeningMiddleware(BaseHTTPMiddleware):
                 )
 
             # 3. Content-Type check (reject non-JSON content types with 415)
+            # Exempt browser demo gate form submissions
+            if request.url.path == "/docs/gate":
+                return await call_next(request)
+
             if len(body) > 0:
                 content_type = request.headers.get("content-type", "")
                 if not content_type.lower().startswith("application/json"):

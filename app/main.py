@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
 
@@ -21,6 +22,7 @@ from app.core.config import settings
 from app.core.db import engine
 from app.core.errors import register_error_handlers
 from app.core.logging import RequestLoggingMiddleware, setup_logging
+from app.security.demo_gate import DemoGateMiddleware
 from app.security.edge import EdgeHardeningMiddleware, SecurityHeadersMiddleware
 from app.security.ratelimit import limiter
 
@@ -67,13 +69,44 @@ def create_app() -> FastAPI:
 
     # Middleware stack:
     # 1. RequestLoggingMiddleware (outermost: logs request_id, latency ms, status, actor)
-    # 2. SecurityHeadersMiddleware (injects defensive security headers on all responses)
-    # 3. EdgeHardeningMiddleware (64 KB body size limit -> 413, JSON content type -> 415)
+    # 2. EdgeHardeningMiddleware (64 KB body size limit -> 413, JSON content type -> 415)
+    # 3. DemoGateMiddleware (gates all demo routes with DEMO_ACCESS_KEY -> 401, health exempt)
     # 4. SlowAPIMiddleware (rate limiting enforcement -> 429)
+    # 5. SecurityHeadersMiddleware (injects defensive security headers on all responses)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(SlowAPIMiddleware)
+    app.add_middleware(DemoGateMiddleware)
     app.add_middleware(EdgeHardeningMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
+
+    # Global security scheme configuration for OpenAPI / Swagger UI
+    def custom_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+        components = openapi_schema.setdefault("components", {})
+        security_schemes = components.setdefault("securitySchemes", {})
+        security_schemes["DemoKeyAuth"] = {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-Demo-Key",
+            "description": (
+                "Demo deployment access key required for all routes "
+                "when APP_ENV=demo (except GET /health)."
+            ),
+        }
+        global_security = openapi_schema.setdefault("security", [])
+        if {"DemoKeyAuth": []} not in global_security:
+            global_security.append({"DemoKeyAuth": []})
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi
 
     # Global error handlers
     register_error_handlers(app)

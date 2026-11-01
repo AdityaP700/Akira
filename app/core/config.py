@@ -55,10 +55,15 @@ class Settings(BaseSettings):
     # Edge hardening & Rate limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_USER_REGISTRATION: str = "5/minute"
+    RATE_LIMIT_DEMO_GLOBAL_REGISTRATION: str = "50/hour"
     RATE_LIMIT_AUTHENTICATED: str = "60/minute"
     RATE_LIMIT_SETTLEMENTS: str = "10/minute"
     MAX_REQUEST_BODY_BYTES: int = 65536  # 64 KB
     TRUSTED_PROXY_HOPS: int | None = None
+
+    # Public Demo Deployment Gate Key
+    # Required when APP_ENV=demo; zero fallback default in demo
+    DEMO_ACCESS_KEY: str = ""
 
     # Webhook HMAC Configuration (Mock Payment Provider)
     # Zero fallback defaults in dev/demo/prod
@@ -124,6 +129,14 @@ class Settings(BaseSettings):
                 if not getattr(self, key, "").strip():
                     setattr(self, key, default_val)
         elif not is_alembic:
+            # Enforce DEMO_ACCESS_KEY presence for demo deployment profile
+            if self.APP_ENV == "demo" and not self.DEMO_ACCESS_KEY.strip():
+                raise ValueError(
+                    "Missing required security environment variable: DEMO_ACCESS_KEY. "
+                    "In 'demo' environment, DEMO_ACCESS_KEY must be explicitly set "
+                    "to gate the public deployment."
+                )
+
             # dev / demo / prod outside Alembic: all cryptographic keys and key IDs are mandatory
             missing = [k for k in REQUIRED_SECRET_KEYS if not getattr(self, k, "").strip()]
             if missing:
