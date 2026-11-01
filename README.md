@@ -17,8 +17,14 @@ Both layers are built to **scale** without breaking correctness: locks are per g
 | **Live API** | https://akira-expense-sharing.onrender.com |
 | **Interactive docs (Swagger)** | https://akira-expense-sharing.onrender.com/docs |
 | **Health check** | https://akira-expense-sharing.onrender.com/health |
+| **Access key** | Provided with the submission (not stored in this repo) |
 
 > The live service runs on a free tier. If it has been idle, the first request takes about a minute. Payments use a **mock provider**; every response carries `X-Environment: demo-mock-payments`.
+>
+> **Why the demo is gated:**
+> The live demo is publicly accessible on the internet, so every route except `GET /health` requires the demo access key (`X-Demo-Key`).
+> Gating shields the free-tier database and compute from automated crawlers, bot spam, and denial-of-wallet exhaustion.
+> Evaluators can enter the key in Swagger UI's **Authorize** modal or via the browser gate on `/docs`.
 
 ---
 
