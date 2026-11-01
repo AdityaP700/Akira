@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import get_db
 from app.core.config import Settings, settings
-from app.main import app
+from app.main import app, create_app
 from app.security.ratelimit import limiter
 
 
@@ -168,22 +168,33 @@ def test_demo_mode_dev_mock_provider_gated(demo_client: TestClient, demo_key: st
 
 
 def test_prod_mode_disabled_routes_and_no_demo_gate(
-    demo_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    demo_client: TestClient, monkeypatch: pytest.MonkeyPatch, session_factory: sessionmaker
 ) -> None:
     """Verify in APP_ENV=prod, regular routes work without demo key and /dev & /docs are 404."""
     monkeypatch.setattr(settings, "APP_ENV", "prod")
+    prod_app = create_app()
+
+    def override_get_db() -> Generator[Session, None, None]:
+        session = session_factory()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    prod_app.dependency_overrides[get_db] = override_get_db
+    prod_client = TestClient(prod_app)
 
     # 1. Regular routes do not require demo key
-    res_user = demo_client.post("/users", json={"name": "Prod Mode User"})
+    res_user = prod_client.post("/users", json={"name": "Prod Mode User"})
     assert res_user.status_code == 201
 
     # 2. Docs endpoints are 404 in production (GUARDRAILS P9)
-    assert demo_client.get("/docs").status_code == 404
-    assert demo_client.get("/redoc").status_code == 404
-    assert demo_client.get("/openapi.json").status_code == 404
+    assert prod_client.get("/docs").status_code == 404
+    assert prod_client.get("/redoc").status_code == 404
+    assert prod_client.get("/openapi.json").status_code == 404
 
     # 3. Dev mock-provider is disabled (404) in production
-    assert demo_client.post("/dev/mock-provider/pay/any_ref").status_code == 404
+    assert prod_client.post("/dev/mock-provider/pay/any_ref").status_code == 404
 
 
 def test_test_mode_unaffected(demo_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -199,6 +210,7 @@ def test_demo_user_registration_global_rate_limit(
 ) -> None:
     """Verify POST /users global rate limit in demo mode triggers when cap is exceeded."""
     limiter.enabled = True
+    limiter.reset()
     try:
         # Lower limit temporarily to 2/hour to verify global cap without 50 roundtrips
         monkeypatch.setattr(settings, "RATE_LIMIT_DEMO_GLOBAL_REGISTRATION", "2/hour")
@@ -222,6 +234,7 @@ def test_demo_user_registration_global_rate_limit(
         assert r3.json()["error"]["code"] == "RATE_LIMITED"
         assert "Retry-After" in r3.headers
     finally:
+        limiter.reset()
         limiter.enabled = False
 
 
@@ -240,7 +253,7 @@ def test_settings_fail_fast_when_demo_access_key_missing() -> None:
 
     # In APP_ENV=demo with empty DEMO_ACCESS_KEY -> must fail fast
     with pytest.raises(
-        ValueError, match="Missing required security environment variable: DEMO_ACCESS_KEY"
+        ValueError, match="Missing required security environment variable.*DEMO_ACCESS_KEY"
     ):
         Settings(
             APP_ENV="demo",

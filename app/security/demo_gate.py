@@ -3,6 +3,7 @@
 import base64
 import hmac
 from typing import Final
+from urllib.parse import parse_qs
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -216,8 +217,9 @@ class DemoGateMiddleware(BaseHTTPMiddleware):
                 except Exception:
                     submitted_key = ""
             else:
-                form = await request.form()
-                submitted_key = str(form.get("demo_key", "")).strip()
+                body_bytes = await request.body()
+                form_dict = parse_qs(body_bytes.decode("utf-8", errors="ignore"))
+                submitted_key = form_dict.get("demo_key", [""])[0].strip()
 
             expected_key = settings.DEMO_ACCESS_KEY.strip()
             if submitted_key and hmac.compare_digest(

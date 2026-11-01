@@ -55,6 +55,7 @@ def test_partial_missing_key_names_exact_missing_variable() -> None:
         Settings(
             _env_file=None,
             APP_ENV="demo",
+            DEMO_ACCESS_KEY="demo_valid_key",
             DATABASE_URL="postgresql+psycopg://app_rw:secret@localhost:5432/akira",
             WEBHOOK_HMAC_KEY=valid_32_bytes,
             WEBHOOK_KEY_ID="whk_1",
@@ -75,6 +76,7 @@ def test_missing_key_id_raises_startup_error(key_name: str) -> None:
     valid_32_bytes = "aa" * 32
     kwargs = {
         "APP_ENV": "demo",
+        "DEMO_ACCESS_KEY": "demo_valid_key",
         "DATABASE_URL": "postgresql+psycopg://app_rw:secret@localhost:5432/akira",
         "WEBHOOK_HMAC_KEY": valid_32_bytes,
         "WEBHOOK_KEY_ID": "whk_1",
@@ -101,6 +103,7 @@ def test_invalid_key_length_rejected(key_name: str) -> None:
     short_key = "aa" * 16  # 16 bytes / 32 hex chars
     kwargs = {
         "APP_ENV": "demo",
+        "DEMO_ACCESS_KEY": "demo_valid_key",
         "DATABASE_URL": "postgresql+psycopg://app_rw:secret@localhost:5432/akira",
         "WEBHOOK_HMAC_KEY": valid_32_bytes,
         "WEBHOOK_KEY_ID": "whk_1",
@@ -129,6 +132,7 @@ def test_non_hex_key_format_rejected(key_name: str) -> None:
     non_hex_key = "zz" * 32  # 64 chars, but 'z' is invalid hex
     kwargs = {
         "APP_ENV": "demo",
+        "DEMO_ACCESS_KEY": "demo_valid_key",
         "DATABASE_URL": "postgresql+psycopg://app_rw:secret@localhost:5432/akira",
         "WEBHOOK_HMAC_KEY": valid_32_bytes,
         "WEBHOOK_KEY_ID": "whk_1",
@@ -167,6 +171,7 @@ def test_valid_demo_profile_succeeds_and_normalizes_urls() -> None:
     s = Settings(
         _env_file=None,
         APP_ENV="demo",
+        DEMO_ACCESS_KEY="demo_valid_key",
         DATABASE_URL="postgres://app_rw:mypass@localhost:5432/akira",
         MIGRATION_DATABASE_URL="postgresql://app_owner:mypass@localhost:5432/akira",
         WEBHOOK_HMAC_KEY=valid_32_bytes,

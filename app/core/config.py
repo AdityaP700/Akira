@@ -129,16 +129,10 @@ class Settings(BaseSettings):
                 if not getattr(self, key, "").strip():
                     setattr(self, key, default_val)
         elif not is_alembic:
-            # Enforce DEMO_ACCESS_KEY presence for demo deployment profile
-            if self.APP_ENV == "demo" and not self.DEMO_ACCESS_KEY.strip():
-                raise ValueError(
-                    "Missing required security environment variable: DEMO_ACCESS_KEY. "
-                    "In 'demo' environment, DEMO_ACCESS_KEY must be explicitly set "
-                    "to gate the public deployment."
-                )
-
             # dev / demo / prod outside Alembic: all cryptographic keys and key IDs are mandatory
             missing = [k for k in REQUIRED_SECRET_KEYS if not getattr(self, k, "").strip()]
+            if self.APP_ENV == "demo" and not self.DEMO_ACCESS_KEY.strip():
+                missing.append("DEMO_ACCESS_KEY")
             if missing:
                 raise ValueError(
                     f"Missing required security environment variable(s): {', '.join(missing)}. "

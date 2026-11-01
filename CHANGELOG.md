@@ -19,6 +19,27 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-11-02 04:10 — CI-FIX — Resolve form parsing, rate limit evaluation, and test isolation
+**Status:** done
+**What changed:**
+- Replaced `request.form()` with stdlib `urllib.parse.parse_qs(await request.body())` in `app/security/demo_gate.py` to eliminate external dependency `python-multipart`.
+- Converted rate limit decorators in `app/api/routers/users.py` to dynamic callables (`lambda: settings.RATE_LIMIT_*`) for dynamic request evaluation.
+- Merged `DEMO_ACCESS_KEY` validation into `REQUIRED_SECRET_KEYS` list check in `app/core/config.py`, ensuring consistent error formatting and preventing test failure isolation issues.
+- Updated `tests/api/test_demo_gate.py`, `tests/api/test_environment_profiles.py`, and `tests/unit/test_config_security.py` with proper app recreation for prod mode, demo key headers, and isolated test fixtures.
+**Why:**
+- Ensure CI pipeline on GitHub Actions passes cleanly without unapproved dependencies (`python-multipart`), preserving zero extra dependency constraints while thoroughly testing all gating functionality.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok; `ruff check .` -> ok; `ruff format --check .` -> ok; `mypy app/domain app/services` -> ok; unit tests -> 18 passed.
+**Decisions:**
+- Standard library `urllib.parse.parse_qs` completely replaces `python-multipart` for HTML gate form parsing without adding third-party packages.
+**Proposed (not built):**
+- None.
+**Commit:** <pending>
+**Next:** Commit changes and prompt user to git push to trigger CI on GitHub Actions.
+
+---
+
 ## 2026-11-02 03:52 — D1-DEMO-GATE — Gate public demo deployment with DEMO_ACCESS_KEY
 **Status:** done
 **What changed:**

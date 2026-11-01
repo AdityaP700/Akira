@@ -31,9 +31,9 @@ router = APIRouter(prefix="/users", tags=["users"])
     summary="Create a new user",
     description="Register a new user. Returns opaque public ID and initial API bearer token.",
 )
-@limiter.limit(settings.RATE_LIMIT_USER_REGISTRATION)
+@limiter.limit(lambda: settings.RATE_LIMIT_USER_REGISTRATION)
 @limiter.limit(
-    settings.RATE_LIMIT_DEMO_GLOBAL_REGISTRATION,
+    lambda: settings.RATE_LIMIT_DEMO_GLOBAL_REGISTRATION,
     key_func=lambda *args, **kwargs: "global:demo_user_registration",
     exempt_when=lambda *args, **kwargs: settings.APP_ENV != "demo",
 )

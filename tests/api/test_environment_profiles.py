@@ -12,21 +12,24 @@ def test_demo_profile_hardened_with_docs_mock_provider_and_header():
     and emits X-Environment: demo-mock-payments.
     """
     orig_env = settings.APP_ENV
+    orig_key = settings.DEMO_ACCESS_KEY
     try:
         settings.APP_ENV = "demo"
+        settings.DEMO_ACCESS_KEY = "test_demo_key"
         demo_app = create_app()
         client = TestClient(demo_app)
+        demo_headers = {"X-Demo-Key": "test_demo_key"}
 
-        # 1. Interactive documentation MUST be enabled in demo
-        docs_res = client.get("/docs")
+        # 1. Interactive documentation MUST be enabled in demo (unlocked via demo key)
+        docs_res = client.get("/docs", headers=demo_headers)
         assert docs_res.status_code == 200
 
-        openapi_res = client.get("/openapi.json")
+        openapi_res = client.get("/openapi.json", headers=demo_headers)
         assert openapi_res.status_code == 200
         assert openapi_res.headers.get("content-type") == "application/json"
 
-        # 2. Mock payment simulation routes MUST be mounted in demo (route exists)
-        dev_res = client.post("/dev/mock-provider/pay/stl_nonexistent")
+        # 2. Mock payment simulation routes mounted in demo (requires demo key)
+        dev_res = client.post("/dev/mock-provider/pay/stl_nonexistent", headers=demo_headers)
         # Route is mounted; handler executes and returns app-level NOT_FOUND
         assert dev_res.status_code == 404
         assert dev_res.json()["error"]["code"] == "NOT_FOUND"
@@ -40,6 +43,7 @@ def test_demo_profile_hardened_with_docs_mock_provider_and_header():
         assert health_res.headers.get("Content-Security-Policy") == "frame-ancestors 'none'"
     finally:
         settings.APP_ENV = orig_env
+        settings.DEMO_ACCESS_KEY = orig_key
 
 
 def test_prod_profile_disables_docs_mock_provider_and_enforces_hsts():
