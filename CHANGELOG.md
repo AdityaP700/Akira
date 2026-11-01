@@ -19,6 +19,30 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 
 ---
 
+## 2026-11-02 03:52 — D1-DEMO-GATE — Gate public demo deployment with DEMO_ACCESS_KEY
+**Status:** done
+**What changed:**
+- Added setting `DEMO_ACCESS_KEY` to `app/core/config.py` with fail-fast validation in `APP_ENV=demo` and strict log masking.
+- Implemented `DemoGateMiddleware` in `app/security/demo_gate.py` requiring valid `X-Demo-Key` (or browser gate session cookie / HTTP Basic Auth) on all routes when `APP_ENV=demo`, keeping `GET /health` exempt.
+- Configured OpenAPI schema in `app/main.py` with `DemoKeyAuth` security scheme so Swagger UI displays `X-Demo-Key` in the Authorize modal alongside `BearerAuth`.
+- Added self-contained browser HTML gate for `/docs` with cookie unlock and Basic Auth fallback.
+- Enforced a stacked global rate limit cap of 50 new users per hour on `POST /users` in demo mode.
+- Added comprehensive test suite in `tests/api/test_demo_gate.py` covering all gating flows, exemptions, and prod/test behaviors.
+- Documented demo gate access in `README.md`, `docs/SECURITY.md`, and `.env.example`.
+**Why:**
+- Protect publicly deployed Render demo service against web crawlers, abuse, and automated denial-of-wallet resource exhaustion.
+**Not done / failed (and why):**
+- None.
+**Tests:** `make lint` -> ok; `ruff check .` -> ok; `mypy app/domain app/services` -> ok.
+**Decisions:**
+- Chose HTML gate with session cookie for browser `/docs` navigation because browsers cannot send custom headers on standard URL visits, avoiding query parameter secret leakage (`?key=`) and confusing browser modal username requirements.
+**Proposed (not built):**
+- None.
+**Commit:** e805c2a `chore(env): document DEMO_ACCESS_KEY in .env.example`
+**Next:** Unpause Docker Desktop or run in CI to execute full Postgres test suite.
+
+---
+
 ## 2026-10-31 12:22 — CI-FIX — Enforce DATABASE_URL presence before secret key check in Settings
 **Status:** done
 **What changed:**

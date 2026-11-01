@@ -24,6 +24,42 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
+## e805c2a — D1-DEMO-GATE — Gate public demo deployment with DEMO_ACCESS_KEY
+**Author:** Antigravity · **Sub-agents used:** none
+**Summary:** Gated public demo deployment on Render using DEMO_ACCESS_KEY. Requires X-Demo-Key header, browser cookie, or Basic auth for all endpoints when APP_ENV=demo (except GET /health). Injected DemoKeyAuth security scheme in OpenAPI for Swagger UI Authorize modal, added a browser HTML gate, enforced a 50/hour global user registration cap in demo, added comprehensive tests, and documented the variables in README and SECURITY.md.
+**Files changed:**
+- `app/core/config.py`: Added `DEMO_ACCESS_KEY` setting, fail-fast validation in demo profile, and secret masking in `__repr__`.
+- `app/security/demo_gate.py`: Implemented `DemoGateMiddleware` with constant-time comparison, browser HTML gate form, and Basic Auth fallback.
+- `app/security/edge.py`: Exempted `/docs/gate` from strict JSON Content-Type check.
+- `app/main.py`: Registered `DemoGateMiddleware` and injected `DemoKeyAuth` in Swagger OpenAPI security schemes.
+- `app/api/routers/users.py`: Added stacked rate limit decorator for global 50/hour registration cap in demo mode.
+- `tests/api/test_demo_gate.py`: Added test suite covering demo auth, health exemption, OpenAPI gating, HTML gate flow, rate limits, and prod/test isolation.
+- `tests/conftest.py`: Added defensive connect timeout to test database probe.
+- `README.md`: Added submission access key note and 3-line "Why the demo is gated" section under live links.
+- `docs/SECURITY.md`: Added Section 9 "Public Exposure & Demo Deployment Gating".
+- `.env.example`: Added `DEMO_ACCESS_KEY` with documentation comment.
+- `CHANGELOG.md` & `REVIEW_NOTES.md`: Documented implementation and audit logs.
+**Behaviour before → after:**
+- Before: In `APP_ENV=demo`, any unauthenticated client could call `/docs`, `/openapi.json`, `/dev/*`, and create unlimited users.
+- After: In `APP_ENV=demo`, every route requires valid `DEMO_ACCESS_KEY` (except `GET /health` which returns 200). Missing key returns 401 standard error envelope. Browsers visiting `/docs` are greeted with a clean gate form that unlocks Swagger UI.
+**How to verify:**
+1. Run `make lint` -> all checks pass cleanly.
+2. In browser: Navigate to `https://<demo-url>/docs` -> see Akira access gate; submit access key -> Swagger UI opens with all endpoints.
+3. In Swagger UI: Click "Authorize", enter access key into `DemoKeyAuth`, enter user token in `BearerAuth` -> all "Try it out" calls succeed.
+4. Using curl: `curl -H "X-Demo-Key: <key>" https://<demo-url>/openapi.json` returns 200.
+**Risks / things to look at closely:**
+- `GET /health` must remain strictly exempt so Render health check does not fail deployment.
+- Never log or leak `DEMO_ACCESS_KEY`.
+**Expected follow-up:**
+- Deploy to Render with `DEMO_ACCESS_KEY` environment variable configured.
+**Reviewer checklist:**
+- [x] Tests cover the new paths, including failure paths
+- [x] No float in money paths; no secrets in diff
+- [x] Guardrails respected (list any exceptions approved)
+- [x] README / docs updated where behaviour changed
+
+---
+
 ## 8ea1640 — CI-FIX — Enforce DATABASE_URL check before secret keys in Settings
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Fixed test assertion failure in `test_settings_fail_fast_when_database_url_missing` by prioritizing `DATABASE_URL` validation over secret keys in `Settings.validate_config`, and supplying dummy test secret keys in the unit test.
