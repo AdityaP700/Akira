@@ -35,7 +35,7 @@ Append-only. Newest entry at the top. One entry per commit-sized change, includi
 - Standard library `urllib.parse.parse_qs` completely replaces `python-multipart` for HTML gate form parsing without adding third-party packages.
 **Proposed (not built):**
 - None.
-**Commit:** <pending>
+**Commit:** 5b088a4 `fix(demo): resolve form parsing, config validation order, and rate limit evaluation`
 **Next:** Commit changes and prompt user to git push to trigger CI on GitHub Actions.
 
 ---

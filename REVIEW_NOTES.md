@@ -24,7 +24,7 @@ A handoff log for teammates and reviewers, like a pull-request description for e
 
 ---
 
-## pending — CI-FIX — Resolve form parsing, rate limit evaluation, and test isolation
+## 5b088a4 — CI-FIX — Resolve form parsing, rate limit evaluation, and test isolation
 **Author:** Antigravity · **Sub-agents used:** none
 **Summary:** Resolved CI test failures on GitHub Actions following demo gate integration. Replaced `request.form()` with stdlib `urllib.parse.parse_qs` to remove requirement for `python-multipart`, converted slowapi decorators to callables for dynamic setting evaluations, merged `DEMO_ACCESS_KEY` validation into the unified secret keys check, and resolved test isolation issues in `test_environment_profiles.py` and `test_config_security.py`.
 **Files changed:**
