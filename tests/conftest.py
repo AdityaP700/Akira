@@ -26,7 +26,9 @@ if not settings.TEST_DATABASE_URL or "sqlite" in settings.TEST_DATABASE_URL.lowe
     )
 
 try:
-    _probe_engine = create_engine(settings.TEST_DATABASE_URL, pool_pre_ping=True)
+    _probe_engine = create_engine(
+        settings.TEST_DATABASE_URL, pool_pre_ping=True, connect_args={"connect_timeout": 3}
+    )
     with _probe_engine.connect() as _conn:
         _conn.execute(text("SELECT 1;"))
     _probe_engine.dispose()
